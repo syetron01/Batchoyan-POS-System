@@ -1,7 +1,7 @@
 // sw.js - Service Worker
 
 // !! IMPORTANT: Update this version number whenever you make changes to any of the cached files !!
-const CACHE_NAME = 'iloilo-batchoy-pos-cache-v5'; // Example: incremented version
+const CACHE_NAME = 'iloilo-batchoy-pos-cache-v6'; // Version incremented to force update
 
 const urlsToCache = [
   './', 
