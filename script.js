@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ]
         }
     };
-    const MENU_STORAGE_KEY = 'iloiloBatchoyPOS_menuData_v6'; 
+    const MENU_STORAGE_KEY = 'iloiloBatchoyPOS_menuData_v7';
 
     let currentOrderBuilder = {
         type: null, tableNumber: null, items: {},
@@ -267,24 +267,34 @@ document.addEventListener('DOMContentLoaded', () => {
         proceedToItemSelection('mainItems');
     }
 
+    /**
+     * MODIFIED FUNCTION: proceedToItemSelection
+     * Now correctly handles button visibility for the edit workflow.
+     */
     function proceedToItemSelection(step) { 
         currentOrderBuilder.currentStep = step;
-        let titlePrefix = "";
         let categoryName = currentOrderBuilder.primaryCategory.charAt(0).toUpperCase() + currentOrderBuilder.primaryCategory.slice(1);
 
         if(currentOrderBuilder.isEditingOrderId) {
-            titlePrefix = `Editing Order #${String(currentOrderBuilder.isEditingOrderId).padStart(4, '0')} - ${categoryName.toUpperCase()}`;
-            itemSelectionTitle.textContent = titlePrefix;
+            itemSelectionTitle.textContent = `Editing Order #${String(currentOrderBuilder.isEditingOrderId).padStart(4, '0')} - ${categoryName.toUpperCase()}`;
+        } else {
+            itemSelectionTitle.textContent = step === 'mainItems' ? `${categoryName} Menu` : `Add-ons for ${categoryName}`;
         }
         
-        let itemsToDisplay;
+        // CORE FIX: Correctly manage Back button visibility
+        if (step === 'mainItems' && currentOrderBuilder.isEditingOrderId) {
+            // Hide "Back" button ONLY on the first screen of an edit.
+            btnItemSelectionBack.style.display = 'none';
+        } else {
+            // Show "Back" button for all other cases (new orders, or side-dish screen of an edit).
+            btnItemSelectionBack.style.display = 'inline-flex';
+        }
 
+        let itemsToDisplay;
         if (step === 'mainItems') {
             itemsToDisplay = menuData[currentOrderBuilder.primaryCategory]?.main || [];
-            if(!currentOrderBuilder.isEditingOrderId) itemSelectionTitle.textContent = categoryName + " Menu";
         } else {
             itemsToDisplay = menuData[currentOrderBuilder.primaryCategory]?.sides || []; 
-            if(!currentOrderBuilder.isEditingOrderId) itemSelectionTitle.textContent = "Add-ons for " + categoryName;
         }
         
         if (itemsToDisplay.length === 0 && step === 'mainItems') {
@@ -381,24 +391,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    /**
+     * MODIFIED FUNCTION: handleItemSelectionBack
+     * This logic now works correctly for both new orders and edits.
+     */
     function handleItemSelectionBack() {
-        if (currentOrderBuilder.isEditingOrderId !== null) {
-            const orderIdToReopen = currentOrderBuilder.isEditingOrderId;
-            resetOrderBuilder();
-            openOrderDetails(orderIdToReopen);
-            return;
-        }
-
-        const itemTypeToClear = currentOrderBuilder.currentStep === 'mainItems' ? 'main' : 'side';
-        for (const itemName in currentOrderBuilder.items) {
-            if (currentOrderBuilder.items[itemName].type === itemTypeToClear) {
-                delete currentOrderBuilder.items[itemName];
-            }
-        }
-
         if (currentOrderBuilder.currentStep === 'sideItems') { 
+            // If on Add-ons, always go back to main items.
             proceedToItemSelection('mainItems'); 
         } else { 
+            // If on main items (only possible for a new order), go back to category selection.
             showScreen('primaryCategorySelection'); 
         }
     }
@@ -411,30 +413,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (orderItems.length === 0 && currentOrderBuilder.isEditingOrderId !== null) {
             showConfirmationModal(
                 'Cancel Order?',
-                'You have removed all items from this order. Do you want to cancel the entire order?',
+                'You have removed all items. Do you want to cancel the entire order?',
                 () => {
                     cancelOrderAction(currentOrderBuilder.isEditingOrderId);
-                    resetOrderBuilder();
-                    showScreen('mainApp');
                     closeModal('confirmation');
                 }
             );
             return;
         } else if (orderItems.length === 0) {
              alert('Please select at least one item.');
-             // Return to the item selection screen instead of doing nothing
-             proceedToItemSelection(currentOrderBuilder.currentStep || 'mainItems');
              return;
         }
 
         if (currentOrderBuilder.isEditingOrderId !== null) {
-            const order = dailySession.orders.find(o => o.id === currentOrderBuilder.isEditingOrderId);
+            const orderIdToReopen = currentOrderBuilder.isEditingOrderId;
+            const order = dailySession.orders.find(o => o.id === orderIdToReopen);
             if (order) {
                 order.items = orderItems;
                 order.totalPrice = calculateOrderTotal(order.items);
-                if (modals.orderDetails.classList.contains('active')) closeModal('orderDetails');
-                // Re-open details modal after edit
-                openOrderDetails(order.id); 
+                resetOrderBuilder(); // Clean up state
+                showScreen('mainApp');
+                openOrderDetails(orderIdToReopen);
             }
         } else {
             const newOrder = {
@@ -445,10 +444,13 @@ document.addEventListener('DOMContentLoaded', () => {
             };
             dailySession.orders.unshift(newOrder); 
             dailySession.stats.totalOrders++; dailySession.stats.pending++;
+            resetOrderBuilder();
+            showScreen('mainApp');
         }
-        renderOrdersList(); calculateDailyTotals(); saveSession();
-        resetOrderBuilder(); 
-        showScreen('mainApp');
+        
+        renderOrdersList(); 
+        calculateDailyTotals(); 
+        saveSession();
     }
     
     function calculateOrderTotal(items) { return items.reduce((sum, item) => sum + (item.price * item.quantity), 0); }
@@ -493,9 +495,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function openOrderDetails(orderId) {
         const order = dailySession.orders.find(o => o.id === orderId); if (!order) return;
-        resetOrderBuilder(); // Reset builder state before opening details
+        
         currentOrderBuilder.isEditingOrderId = order.id; 
         currentOrderBuilder.primaryCategory = order.primaryCategory; 
+
         orderDetailModalTitle.textContent = `Order Details (${order.primaryCategory.charAt(0).toUpperCase() + order.primaryCategory.slice(1)})`;
         detailOrderId.textContent = `Order ID: #${String(order.id).padStart(4, '0')}`;
         let statusText = order.status;
@@ -531,12 +534,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const orderId = currentOrderBuilder.isEditingOrderId; if (orderId === null) return;
         const order = dailySession.orders.find(o => o.id === orderId); if (!order) return;
         
-        // Don't reset the builder here, but set the mode and copy existing items.
         currentOrderBuilder.editMode = 'fullEdit'; 
         currentOrderBuilder.type = order.type; 
         currentOrderBuilder.tableNumber = order.tableNumber;
         currentOrderBuilder.primaryCategory = order.primaryCategory;
-        // Clear previous items and copy fresh from the order
         currentOrderBuilder.items = {};
         order.items.forEach(item => {
             currentOrderBuilder.items[item.name] = { quantity: item.quantity, price: item.price, type: item.type };
@@ -558,7 +559,8 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateDailyTotals(); renderOrdersList(); saveSession();
             alert(`Order #${String(order.id).padStart(4, '0')} marked as Paid with ${method}.`);
         }
-        closeModal('paymentMethod'); orderToPayId = null; resetOrderBuilder(); 
+        closeModal('paymentMethod'); 
+        resetOrderBuilder(); 
     }
     function cancelOrderAction(idToCancel = null) {
         const orderId = idToCancel || currentOrderBuilder.isEditingOrderId;
@@ -569,7 +571,9 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateDailyTotals(); renderOrdersList(); saveSession();
             alert(`Order #${String(order.id).padStart(4, '0')} has been cancelled.`);
         }
-        closeModal('orderDetails'); resetOrderBuilder();
+        closeModal('orderDetails'); 
+        resetOrderBuilder();
+        showScreen('mainApp');
     }
     function exportDailyReportCSV() {
         let csv = "Order ID,Timestamp,Type,Table/Ref,Category,Status,Payment Method,Total Price,Items (Main),Items (Sides),Customer Note\n";
@@ -716,10 +720,9 @@ document.addEventListener('DOMContentLoaded', () => {
         btnItemSelectionBack.addEventListener('click', handleItemSelectionBack);
         btnItemSelectionFinish.addEventListener('click', finalizeOrder);
         
-        // MODIFIED EVENT LISTENER: This now resets the state correctly.
         btnCloseModal.addEventListener('click', () => {
             closeModal('orderDetails');
-            resetOrderBuilder(); // Always reset the builder when closing the details modal.
+            resetOrderBuilder();
         });
 
         btnModalEditOrderItems.addEventListener('click', startEditOrderItems);
@@ -730,7 +733,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnReportBackToMain.addEventListener('click', () => { if (dailySession.active) showScreen('mainApp'); else showScreen('startDay'); });
         btnExportReport.addEventListener('click', exportDailyReportCSV);
         
-        btnSettingsBackToMain.addEventListener('click', () => showScreen('mainAapp'));
+        btnSettingsBackToMain.addEventListener('click', () => showScreen('mainApp'));
         btnAddBatchoyItem.addEventListener('click', () => openEditMenuItemModal('batchoy', 'main'));
         btnAddBatchoySideItem.addEventListener('click', () => openEditMenuItemModal('batchoy', 'side'));
         btnAddSilogItem.addEventListener('click', () => openEditMenuItemModal('silog', 'main'));

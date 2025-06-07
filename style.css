@@ -73,45 +73,49 @@ header {
 .main-controls { padding: 10px 0 0px; display: flex; gap: 10px; flex-direction: column; }
 .main-controls .btn { flex-grow: 1; }
 
-/* MODIFIED: Order Filters */
+/* MODIFIED: Order Filters (Corrected Specificity) */
 .order-filters {
     display: flex;
-    gap: 8px; /* Slightly reduced gap */
+    gap: 8px;
     margin-bottom: 15px;
     margin-top: 15px; 
-    justify-content: center; /* Center the group of buttons */
-    flex-wrap: wrap; /* Allow buttons to wrap on smaller screens if needed */
+    justify-content: center;
+    flex-wrap: wrap;
+}
+/* This rule targets filter buttons that are NOT active */
+.btn-filter:not(.active) {
+    color: var(--text-secondary); /* Gray text for inactive */
+    border: 1px solid #000000;    /* Black border for inactive */
+    background-color: #ffffff;
+}
+.btn-filter:hover:not(.active) {
+    background-color: #f3f4f6;
+    border-color: #333;
 }
 .btn-filter {
-    padding: 8px 12px; /* Adjusted padding */
+    padding: 8px 12px;
     font-size: 14px;
-    background-color: #e9ecef; /* Light gray background for inactive */
-    color: var(--text-primary);   /* Darker text for inactive */
-    border: 1px solid #ced4da;    /* Softer border for inactive */
-    border-radius: 6px;           /* Consistent rounded corners */
+    border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
-.btn-filter:hover {
-    background-color: #d3d9df; /* Slightly darker on hover for inactive */
-}
 .btn-filter.active {
-    background-color: var(--btn-primary-bg); /* Blue for active "All" */
+    background-color: var(--btn-primary-bg);
     color: var(--btn-text-color);
     border-color: var(--btn-primary-bg);
 }
 .btn-filter[data-filter="pending"].active {
-    background-color: var(--border-pending); /* Amber for active "Pending" */
-    color: var(--text-primary); /* Dark text on amber */
+    background-color: var(--border-pending);
+    color: var(--text-primary);
     border-color: var(--border-pending);
 }
 .btn-filter[data-filter="paid"].active {
-    background-color: var(--border-paid); /* Green for active "Paid" */
+    background-color: var(--border-paid);
     color: var(--btn-text-color);
     border-color: var(--border-paid);
 }
 .btn-filter[data-filter="cancelled"].active {
-    background-color: var(--border-cancelled); /* Red for active "Cancelled" */
+    background-color: var(--border-cancelled);
     color: var(--btn-text-color);
     border-color: var(--border-cancelled);
 }
