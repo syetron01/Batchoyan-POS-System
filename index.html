@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ilo-ilo Batchoy POS</title>
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#f59e0b"/>
+    <meta name="description" content="Cashier POS System for Ilo-ilo Batchoy.">
+    <link rel="apple-touch-icon" href="./images/icon-192x192.png"> <!-- Or your specific apple-touch-icon.png -->
+    <link rel="manifest" href="./manifest.json">
+
+    <!-- Favicon links (optional but good practice) -->
+    <link rel="icon" type="image/png" sizes="32x32" href="./images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./images/favicon-16x16.png">
+    <!-- <link rel="shortcut icon" href="./favicon.ico">  You might have this too -->
+
+
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div id="app-container">
+
+        <!-- Screen: Start Day -->
+        <div id="screen-start-day" class="screen active">
+            <div class="logo-container-start">
+                <div class="logo-placeholder">
+                    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="48" fill="#fff7ed" stroke="#f59e0b" stroke-width="2"/>
+                        <text x="50" y="35" font-family="Poppins, serif" font-size="10" font-weight="bold" fill="#1e293b" text-anchor="middle">ILO-ILO</text>
+                        <text x="50" y="50" font-family="Poppins, serif" font-size="18" font-weight="bold" fill="#8c5307" text-anchor="middle">🍜</text>
+                        <text x="50" y="68" font-family="Poppins, serif" font-size="10" font-weight="bold" fill="#1e293b" text-anchor="middle">BATCHOY</text>
+                    </svg>
+                </div>
+                <h1>Ilo-ilo Batchoy</h1>
+            </div>
+            <button id="btn-start-day" class="btn btn-confirm btn-large">Start Day</button>
+        </div>
+
+        <!-- Screen: Main Application (Orders, New Order) -->
+        <div id="screen-main-app" class="screen">
+            <header>
+                <div class="logo-header">
+                     <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" width="40" height="40">
+                        <circle cx="50" cy="50" r="48" fill="#fff7ed" stroke="#f59e0b" stroke-width="3"/>
+                        <text x="50" y="58" font-family="Poppins, serif" font-size="30" fill="#8c5307" text-anchor="middle">🍜</text>
+                    </svg>
+                    <span>Ilo-ilo Batchoy</span>
+                </div>
+                <div class="session-info">
+                    <span>Daily Earnings: <strong id="daily-earnings">₱0.00</strong></span>
+                    <button id="btn-end-day" class="btn btn-danger">End Day</button>
+                </div>
+            </header>
+
+            <div class="main-actions-bar">
+                <button id="btn-settings" class="btn"><i class="fas fa-cog"></i> Settings</button>
+            </div>
+
+            <div class="main-controls">
+                <button id="btn-new-order" class="btn btn-primary btn-large">New Customer / Order</button>
+                <button id="btn-view-report" class="btn btn-secondary">View Daily Report</button>
+            </div>
+            
+            <div class="order-filters">
+                <button class="btn btn-filter active" data-filter="all">All</button>
+                <button class="btn btn-filter" data-filter="pending">Pending</button>
+                <button class="btn btn-filter" data-filter="paid">Paid</button> 
+                <button class="btn btn-filter" data-filter="cancelled">Cancelled</button>
+            </div>
+
+            <h2 class="section-title"><span>Active Orders</span></h2>
+            <div id="orders-list-container">
+                <p id="no-orders-message">No active orders yet.</p>
+            </div>
+        </div>
+
+        <!-- Screen: New Order Type Selection -->
+        <div id="screen-new-order-type" class="screen">
+            <h2 class="section-title new-customer-title"><span>New Customer</span></h2>
+            <div class="order-type-selection">
+                <button class="order-type-btn" data-type="take-out">
+                    <h3>Take-out</h3>
+                </button>
+                <button class="order-type-btn" data-type="dine-in">
+                    <h3>Dine-in</h3>
+                </button>
+            </div>
+            <button id="btn-cancel-order-creation" class="btn btn-secondary">Cancel</button>
+        </div>
+        
+        <!-- Screen: Table Number Input -->
+        <div id="screen-table-number" class="screen">
+            <h2 class="section-title">Enter Table Number</h2>
+            <input type="number" id="input-table-number" placeholder="Table #" min="1">
+            <div class="action-buttons">
+                <button id="btn-confirm-table-number" class="btn btn-primary">Next</button>
+                <button id="btn-cancel-table-number" class="btn btn-secondary">Back</button>
+            </div>
+        </div>
+
+        <!-- Screen: Item Selection (Batchoy / Add-ons) -->
+        <div id="screen-item-selection" class="screen">
+            <h2 id="item-selection-title" class="section-title">BATCHOY</h2>
+            <div id="item-selection-grid">
+                <!-- Item cards will be dynamically inserted here -->
+            </div>
+            <div class="item-selection-actions">
+                <button id="btn-item-selection-back" class="btn btn-secondary">Back</button>
+                <button id="btn-item-selection-finish" class="btn btn-confirm" style="display:none;">Finish Order</button>
+                <button id="btn-item-selection-next" class="btn btn-primary">Next</button>
+            </div>
+        </div>
+        
+        <!-- Modal: Order Details -->
+        <div id="modal-order-details" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Order Details</h2>
+                    <button id="btn-close-modal" class="close-button">×</button>
+                </div>
+                <div id="order-details-content">
+                    <div class="detail-row">
+                        <span id="detail-order-id">Order ID: #000</span>
+                        <span id="detail-order-status" class="status-badge">Status</span>
+                    </div>
+                    <div class="detail-row">
+                        <span id="detail-order-datetime">Date & Time</span>
+                        <span id="detail-order-table">Table/Type</span>
+                    </div>
+
+                    <h3>Main Items</h3>
+                    <ul id="detail-main-items-list"></ul>
+                    
+                    <h3>Side Dishes</h3>
+                    <ul id="detail-side-dishes-list"></ul>
+
+                    <div class="order-total-section">
+                        <strong>Total Amount: <span id="detail-total-price">₱0.00</span></strong>
+                    </div>
+                    
+                    <textarea id="detail-customer-note" placeholder="Optional Customer Note..."></textarea>
+                </div>
+                <div id="order-details-actions" class="modal-actions">
+                    <button id="btn-modal-edit-order-items" class="btn btn-warning">✏️ Edit Order Items</button>
+                    <button id="btn-modal-add-more" class="btn btn-secondary">➕ Add More Items</button>
+                    <button id="btn-modal-mark-paid" class="btn btn-confirm">✅ Mark as Paid</button>
+                    <button id="btn-modal-cancel-order" class="btn btn-danger">❌ Cancel Order</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Payment Method -->
+        <div id="modal-payment-method" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Select Payment Method</h2>
+                </div>
+                <div class="payment-options">
+                    <button class="btn btn-payment" data-method="Cash">Cash</button>
+                    <button class="btn btn-payment" data-method="GCash">GCash</button>
+                </div>
+                <button id="btn-cancel-payment" class="btn btn-secondary">Cancel Payment</button>
+            </div>
+        </div>
+
+        <!-- Modal: Custom Confirmation -->
+        <div id="modal-confirmation" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="confirmation-title">Confirm Action</h2>
+                </div>
+                <p id="confirmation-message">Are you sure?</p>
+                <div class="modal-actions confirmation-actions">
+                    <button id="btn-confirm-action" class="btn btn-confirm">Confirm</button>
+                    <button id="btn-cancel-action" class="btn btn-secondary">Cancel</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Screen: Daily Report -->
+        <div id="screen-daily-report" class="screen">
+            <h2 class="section-title">Daily Report</h2>
+            <div id="report-content">
+                <p>Report for: <span id="report-date"></span></p>
+                <p>Total Orders: <span id="report-total-orders">0</span></p>
+                <p>Total Earnings: <span id="report-total-earnings">₱0.00</span></p>
+                <hr>
+                <h4>Earnings by Payment Type:</h4>
+                <p>Cash Earnings: <span id="report-cash-earnings">₱0.00</span> (<span id="report-cash-count">0</span> orders)</p>
+                <p>GCash Earnings: <span id="report-gcash-earnings">₱0.00</span> (<span id="report-gcash-count">0</span> orders)</p>
+                <hr>
+                <p>Paid Orders: <span id="report-paid-orders">0</span></p>
+                <p>Pending Orders: <span id="report-pending-orders">0</span></p>
+                <p>Cancelled Orders: <span id="report-cancelled-orders">0</span></p>
+            </div>
+            <div class="action-buttons">
+                <button id="btn-report-back-to-main" class="btn btn-primary">Back to Orders</button>
+                <button id="btn-export-report" class="btn btn-secondary">Export Data (CSV)</button>
+            </div>
+        </div>
+
+        <!-- Screen: Settings / Menu Management -->
+        <div id="screen-settings" class="screen">
+            <h2 class="section-title">Settings - Menu Management</h2>
+            
+            <div class="menu-management-section">
+                <h3>Main Menu (Batchoy)</h3>
+                <div id="main-menu-items-list" class="menu-items-display-list"></div>
+                <button id="btn-add-main-item" class="btn btn-primary">Add New Batchoy Item</button>
+            </div>
+
+            <div class="menu-management-section">
+                <h3>Side Dishes (Add-ons)</h3>
+                <div id="side-menu-items-list" class="menu-items-display-list"></div>
+                <button id="btn-add-side-item" class="btn btn-primary">Add New Side Dish</button>
+            </div>
+            
+            <div class="action-buttons">
+                <button id="btn-settings-back-to-main" class="btn btn-secondary">Back to Main</button>
+            </div>
+        </div>
+
+        <!-- Modal: Add/Edit Menu Item -->
+        <div id="modal-edit-menu-item" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="edit-menu-item-modal-title">Edit Item</h2>
+                    <button id="btn-close-edit-menu-modal" class="close-button">×</button>
+                </div>
+                <form id="form-edit-menu-item">
+                    <input type="hidden" id="edit-item-id">
+                    <input type="hidden" id="edit-item-type"> 
+                    
+                    <label for="edit-item-name">Item Name:</label>
+                    <input type="text" id="edit-item-name" required>
+                    
+                    <label for="edit-item-price">Price (₱):</label>
+                    <input type="number" id="edit-item-price" step="0.01" min="0" required>
+                    
+                    <div class="modal-actions">
+                        <button type="submit" class="btn btn-confirm">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script> <!-- Service worker registration is in script.js -->
+</body>
+</html>
