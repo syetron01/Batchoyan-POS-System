@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // MODIFIED: Menu data updated to match screenshot and ensure separation
     let menuData = {
         batchoy: { 
             main: [
@@ -16,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: `batchoy_main_${Date.now()}_2`, name: 'Regular Batchoy', price: 75 },
                 { id: `batchoy_main_${Date.now()}_3`, name: 'Special Batchoy', price: 95 }
             ],
-            sides: [ // Batchoy-specific sides
+            sides: [
                 { id: `batchoy_side_${Date.now()}_1`, name: 'Boiled Egg', price: 10.00 },
                 { id: `batchoy_side_${Date.now()}_2`, name: 'Chicharon', price: 15.00 },
                 { id: `batchoy_side_${Date.now()}_3`, name: 'Cabbage', price: 5.00 },
@@ -30,15 +29,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: `silog_main_${Date.now()}_3`, name: 'Longsilog', price: 80 },
                 { id: `silog_main_${Date.now()}_4`, name: 'Hotsilog', price: 75 }
             ],
-            sides: [ // Silog-specific sides
+            sides: [
                 { id: `silog_side_${Date.now()}_1`, name: 'Sliced Tomatoes', price: 8.00 },
                 { id: `silog_side_${Date.now()}_2`, name: 'Sliced Cucumbers', price: 8.00 },
                 { id: `silog_side_${Date.now()}_3`, name: 'Atchara (Pickled Papaya)', price: 15.00 }
             ]
         }
     };
-    // IMPORTANT: Incremented version number to ensure old, incorrect data in local storage is ignored.
-    const MENU_STORAGE_KEY = 'iloiloBatchoyPOS_menuData_v5'; 
+    const MENU_STORAGE_KEY = 'iloiloBatchoyPOS_menuData_v6'; 
 
     let currentOrderBuilder = {
         type: null, tableNumber: null, items: {},
@@ -47,7 +45,7 @@ document.addEventListener('DOMContentLoaded', () => {
         editMode: null, 
         currentStep: null 
     };
-    let editingMenuItem = { id: null, menuCategory: null, itemType: null }; // menuCategory: 'batchoy'/'silog', itemType: 'main'/'side'
+    let editingMenuItem = { id: null, menuCategory: null, itemType: null };
     let currentOrderFilter = 'all';
     let confirmationCallback = null;
 
@@ -87,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnItemSelectionFinish = document.getElementById('btn-item-selection-finish');
     const btnCloseModal = document.getElementById('btn-close-modal');
     const btnModalEditOrderItems = document.getElementById('btn-modal-edit-order-items');
-    const btnModalAddMore = document.getElementById('btn-modal-add-more');
     const btnModalMarkPaid = document.getElementById('btn-modal-mark-paid');
     const btnModalCancelOrder = document.getElementById('btn-modal-cancel-order');
     const paymentMethodButtons = document.querySelectorAll('.btn-payment');
@@ -173,7 +170,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!menuData.silog) menuData.silog = { main: [], sides: [] };
         }
         else {
-            // Default menuData already defined with category-specific sides
             saveMenuData(); 
         }
     }
@@ -274,21 +270,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function proceedToItemSelection(step) { 
         currentOrderBuilder.currentStep = step;
         let titlePrefix = "";
+        let categoryName = currentOrderBuilder.primaryCategory.charAt(0).toUpperCase() + currentOrderBuilder.primaryCategory.slice(1);
+
         if(currentOrderBuilder.isEditingOrderId) {
-            titlePrefix = currentOrderBuilder.editMode === 'fullEdit' ? `Editing Order #${String(currentOrderBuilder.isEditingOrderId).padStart(4, '0')}` : `Adding to Order #${String(currentOrderBuilder.isEditingOrderId).padStart(4, '0')}`;
-            titlePrefix += " - ";
+            titlePrefix = `Editing Order #${String(currentOrderBuilder.isEditingOrderId).padStart(4, '0')} - ${categoryName.toUpperCase()}`;
+            itemSelectionTitle.textContent = titlePrefix;
         }
         
         let itemsToDisplay;
-        let categoryName = currentOrderBuilder.primaryCategory.charAt(0).toUpperCase() + currentOrderBuilder.primaryCategory.slice(1);
 
         if (step === 'mainItems') {
             itemsToDisplay = menuData[currentOrderBuilder.primaryCategory]?.main || [];
-            itemSelectionTitle.textContent = titlePrefix + categoryName + " Menu";
-        } else { // This is the 'sideItems' step
-            // THIS IS THE CORRECTED LOGIC: It specifically gets the 'sides' array from the selected primary category.
+            if(!currentOrderBuilder.isEditingOrderId) itemSelectionTitle.textContent = categoryName + " Menu";
+        } else {
             itemsToDisplay = menuData[currentOrderBuilder.primaryCategory]?.sides || []; 
-            itemSelectionTitle.textContent = titlePrefix + "Add-ons for " + categoryName;
+            if(!currentOrderBuilder.isEditingOrderId) itemSelectionTitle.textContent = "Add-ons for " + categoryName;
         }
         
         if (itemsToDisplay.length === 0 && step === 'mainItems') {
@@ -299,18 +295,17 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const hasSidesForCurrentCategory = menuData[currentOrderBuilder.primaryCategory]?.sides?.length > 0;
 
-        if (itemsToDisplay.length === 0 && step === 'sideItems') { // If no sides for this category, finalize order.
+        if (itemsToDisplay.length === 0 && step === 'sideItems') {
             finalizeOrder(); 
             return; 
         }
 
         populateItemSelectionGrid(itemsToDisplay, step === 'mainItems' ? 'main' : 'side'); 
         
-        // Adjust button text and visibility based on the step
         if (step === 'mainItems') {
             btnItemSelectionNext.textContent = hasSidesForCurrentCategory ? `Add-ons` : 'Review Order';
             btnItemSelectionFinish.style.display = 'inline-flex'; 
-        } else { // 'sideItems' step
+        } else { 
             btnItemSelectionNext.textContent = 'Review Order';
             btnItemSelectionFinish.style.display = 'none'; 
         }
@@ -381,13 +376,19 @@ document.addEventListener('DOMContentLoaded', () => {
             } else { 
                 finalizeOrder(); 
             }
-        } else { // Currently on 'sideItems' step, so next is to finalize
+        } else {
             finalizeOrder(); 
         }
     }
 
     function handleItemSelectionBack() {
-        // Clear items from the current step before going back
+        if (currentOrderBuilder.isEditingOrderId !== null) {
+            const orderIdToReopen = currentOrderBuilder.isEditingOrderId;
+            resetOrderBuilder();
+            openOrderDetails(orderIdToReopen);
+            return;
+        }
+
         const itemTypeToClear = currentOrderBuilder.currentStep === 'mainItems' ? 'main' : 'side';
         for (const itemName in currentOrderBuilder.items) {
             if (currentOrderBuilder.items[itemName].type === itemTypeToClear) {
@@ -396,10 +397,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (currentOrderBuilder.currentStep === 'sideItems') { 
-            // If on sides, go back to main items of the same category
             proceedToItemSelection('mainItems'); 
         } else { 
-            // If on main items, go back to category selection
             showScreen('primaryCategorySelection'); 
         }
     }
@@ -409,25 +408,32 @@ document.addEventListener('DOMContentLoaded', () => {
             .filter(([, details]) => details.quantity > 0)
             .map(([name, details]) => ({ name, quantity: details.quantity, price: details.price, type: details.type }));
 
-        if (orderItems.length === 0) {
-            alert('Please select at least one item.');
-            proceedToItemSelection(currentOrderBuilder.currentStep || 'mainItems');
+        if (orderItems.length === 0 && currentOrderBuilder.isEditingOrderId !== null) {
+            showConfirmationModal(
+                'Cancel Order?',
+                'You have removed all items from this order. Do you want to cancel the entire order?',
+                () => {
+                    cancelOrderAction(currentOrderBuilder.isEditingOrderId);
+                    resetOrderBuilder();
+                    showScreen('mainApp');
+                    closeModal('confirmation');
+                }
+            );
             return;
+        } else if (orderItems.length === 0) {
+             alert('Please select at least one item.');
+             // Return to the item selection screen instead of doing nothing
+             proceedToItemSelection(currentOrderBuilder.currentStep || 'mainItems');
+             return;
         }
 
         if (currentOrderBuilder.isEditingOrderId !== null) {
             const order = dailySession.orders.find(o => o.id === currentOrderBuilder.isEditingOrderId);
             if (order) {
-                if (currentOrderBuilder.editMode === 'fullEdit') { order.items = orderItems; }
-                else { 
-                    orderItems.forEach(newItem => {
-                        const existingItem = order.items.find(item => item.name === newItem.name);
-                        if (existingItem) { existingItem.quantity += newItem.quantity; } 
-                        else { order.items.push(newItem); }
-                    });
-                }
+                order.items = orderItems;
                 order.totalPrice = calculateOrderTotal(order.items);
                 if (modals.orderDetails.classList.contains('active')) closeModal('orderDetails');
+                // Re-open details modal after edit
                 openOrderDetails(order.id); 
             }
         } else {
@@ -441,7 +447,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dailySession.stats.totalOrders++; dailySession.stats.pending++;
         }
         renderOrdersList(); calculateDailyTotals(); saveSession();
-        resetOrderBuilder(); showScreen('mainApp');
+        resetOrderBuilder(); 
+        showScreen('mainApp');
     }
     
     function calculateOrderTotal(items) { return items.reduce((sum, item) => sum + (item.price * item.quantity), 0); }
@@ -486,6 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function openOrderDetails(orderId) {
         const order = dailySession.orders.find(o => o.id === orderId); if (!order) return;
+        resetOrderBuilder(); // Reset builder state before opening details
         currentOrderBuilder.isEditingOrderId = order.id; 
         currentOrderBuilder.primaryCategory = order.primaryCategory; 
         orderDetailModalTitle.textContent = `Order Details (${order.primaryCategory.charAt(0).toUpperCase() + order.primaryCategory.slice(1)})`;
@@ -514,7 +522,6 @@ document.addEventListener('DOMContentLoaded', () => {
         detailCustomerNote.onchange = (e) => { order.customerNote = e.target.value; saveSession(); };
         const isPending = order.status === 'Pending';
         btnModalEditOrderItems.style.display = isPending ? 'block' : 'none';
-        btnModalAddMore.style.display = isPending ? 'block' : 'none';
         btnModalMarkPaid.style.display = isPending ? 'block' : 'none';
         btnModalCancelOrder.style.display = isPending ? 'block' : 'none';
         showModal('orderDetails');
@@ -523,27 +530,18 @@ document.addEventListener('DOMContentLoaded', () => {
     function startEditOrderItems() {
         const orderId = currentOrderBuilder.isEditingOrderId; if (orderId === null) return;
         const order = dailySession.orders.find(o => o.id === orderId); if (!order) return;
-        resetOrderBuilder(); 
-        currentOrderBuilder.isEditingOrderId = order.id;
+        
+        // Don't reset the builder here, but set the mode and copy existing items.
         currentOrderBuilder.editMode = 'fullEdit'; 
         currentOrderBuilder.type = order.type; 
         currentOrderBuilder.tableNumber = order.tableNumber;
         currentOrderBuilder.primaryCategory = order.primaryCategory;
+        // Clear previous items and copy fresh from the order
+        currentOrderBuilder.items = {};
         order.items.forEach(item => {
             currentOrderBuilder.items[item.name] = { quantity: item.quantity, price: item.price, type: item.type };
         });
-        closeModal('orderDetails');
-        proceedToItemSelection('mainItems'); 
-    }
 
-    function addMoreItemsToOrder() {
-        const orderId = currentOrderBuilder.isEditingOrderId; if (orderId === null) return;
-        const order = dailySession.orders.find(o => o.id === orderId); if (!order) return;
-        currentOrderBuilder.items = {}; 
-        currentOrderBuilder.editMode = 'addMore';
-        currentOrderBuilder.type = order.type; 
-        currentOrderBuilder.tableNumber = order.tableNumber;
-        currentOrderBuilder.primaryCategory = order.primaryCategory;
         closeModal('orderDetails');
         proceedToItemSelection('mainItems'); 
     }
@@ -560,17 +558,18 @@ document.addEventListener('DOMContentLoaded', () => {
             calculateDailyTotals(); renderOrdersList(); saveSession();
             alert(`Order #${String(order.id).padStart(4, '0')} marked as Paid with ${method}.`);
         }
-        closeModal('paymentMethod'); orderToPayId = null; currentOrderBuilder.isEditingOrderId = null; 
+        closeModal('paymentMethod'); orderToPayId = null; resetOrderBuilder(); 
     }
-    function cancelOrderAction() {
-        const orderId = currentOrderBuilder.isEditingOrderId; if (orderId === null) return;
+    function cancelOrderAction(idToCancel = null) {
+        const orderId = idToCancel || currentOrderBuilder.isEditingOrderId;
+        if (orderId === null) return;
         const order = dailySession.orders.find(o => o.id === orderId);
         if (order && order.status === 'Pending') {
             order.status = 'Cancelled';
             calculateDailyTotals(); renderOrdersList(); saveSession();
             alert(`Order #${String(order.id).padStart(4, '0')} has been cancelled.`);
         }
-        closeModal('orderDetails'); currentOrderBuilder.isEditingOrderId = null;
+        closeModal('orderDetails'); resetOrderBuilder();
     }
     function exportDailyReportCSV() {
         let csv = "Order ID,Timestamp,Type,Table/Ref,Category,Status,Payment Method,Total Price,Items (Main),Items (Sides),Customer Note\n";
@@ -716,17 +715,22 @@ document.addEventListener('DOMContentLoaded', () => {
         btnItemSelectionNext.addEventListener('click', handleItemSelectionNext);
         btnItemSelectionBack.addEventListener('click', handleItemSelectionBack);
         btnItemSelectionFinish.addEventListener('click', finalizeOrder);
-        btnCloseModal.addEventListener('click', () => { closeModal('orderDetails'); currentOrderBuilder.isEditingOrderId = null; });
+        
+        // MODIFIED EVENT LISTENER: This now resets the state correctly.
+        btnCloseModal.addEventListener('click', () => {
+            closeModal('orderDetails');
+            resetOrderBuilder(); // Always reset the builder when closing the details modal.
+        });
+
         btnModalEditOrderItems.addEventListener('click', startEditOrderItems);
-        btnModalAddMore.addEventListener('click', addMoreItemsToOrder);
         btnModalMarkPaid.addEventListener('click', initiatePayment); 
-        btnModalCancelOrder.addEventListener('click', () => showConfirmationModal('Cancel Order', `Cancel Order #${String(currentOrderBuilder.isEditingOrderId).padStart(4, '0')}?`, cancelOrderAction));
+        btnModalCancelOrder.addEventListener('click', () => showConfirmationModal('Cancel Order', `Cancel Order #${String(currentOrderBuilder.isEditingOrderId).padStart(4, '0')}?`, () => cancelOrderAction()));
         paymentMethodButtons.forEach(btn => btn.addEventListener('click', () => processPayment(btn.dataset.method)));
-        btnCancelPayment.addEventListener('click', () => { closeModal('paymentMethod'); orderToPayId = null; });
+        btnCancelPayment.addEventListener('click', () => { closeModal('paymentMethod'); resetOrderBuilder(); });
         btnReportBackToMain.addEventListener('click', () => { if (dailySession.active) showScreen('mainApp'); else showScreen('startDay'); });
         btnExportReport.addEventListener('click', exportDailyReportCSV);
         
-        btnSettingsBackToMain.addEventListener('click', () => showScreen('mainApp'));
+        btnSettingsBackToMain.addEventListener('click', () => showScreen('mainAapp'));
         btnAddBatchoyItem.addEventListener('click', () => openEditMenuItemModal('batchoy', 'main'));
         btnAddBatchoySideItem.addEventListener('click', () => openEditMenuItemModal('batchoy', 'side'));
         btnAddSilogItem.addEventListener('click', () => openEditMenuItemModal('silog', 'main'));
