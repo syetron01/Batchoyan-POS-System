@@ -1,51 +1,66 @@
 // sw.js - Service Worker
 
 // !! IMPORTANT: Update this version number whenever you make changes to any of the cached files !!
-const CACHE_NAME = 'iloilo-batchoy-pos-cache-v3'; // Example: incremented version
+const CACHE_NAME = 'iloilo-batchoy-pos-cache-v5'; // Example: incremented version
 
 const urlsToCache = [
-  './', // This caches the root path, often resolving to index.html
+  './', 
   './index.html',
   './style.css',
   './script.js',
-  './manifest.json', // Cache the manifest file itself
+  './manifest.json', 
 
-  // Add paths to your primary icons located in the ./images/ folder
-  // Ensure these filenames match what you have and what's in your manifest.json
-  './images/icon-192x192.png',
-  './images/icon-512x512.png',
-  // Add other critical icons if you have them and they are referenced
-  // e.g., './images/apple-touch-icon.png',
-  // e.g., './images/favicon-32x32.png',
+  // Icons - paths now reflect your structure: ./images/platform/filename.png
+  './images/android/android-launchericon-192-192.png',
+  './images/android/android-launchericon-512-512.png',
+  // Add other Android sizes you want to pre-cache if they are commonly used by your manifest
+  './images/android/android-launchericon-144-144.png',
+  './images/android/android-launchericon-96-96.png',
+  './images/android/android-launchericon-72-72.png',
+  './images/android/android-launchericon-48-48.png',
 
-  // External resources (fonts, icon libraries)
+  // iOS icons (example, adjust to actual filenames in your images/ios/ folder)
+  './images/ios/180.png', // Or whatever your primary apple-touch-icon is named
+  // './images/ios/167.png', // etc.
+
+  // Favicons (example, adjust to actual filenames if you have them in images/android/ or images/ directly)
+  // './images/android/android-launchericon-32-32.png', // If you use an android icon as favicon
+  // './images/android/android-launchericon-16-16.png',
+
+
+  // External resources
   'https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css'
-  // Add any other essential external resources here
 ];
 
 // Install event: Cache core assets
 self.addEventListener('install', (event) => {
-  console.log('Service Worker: Installing...');
+  console.log('Service Worker: Installing (' + CACHE_NAME + ')...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Service Worker: Caching app shell files:', urlsToCache);
-        return cache.addAll(urlsToCache);
+        // Use {cache: 'reload'} to ensure fresh copies are fetched during install for these critical assets
+        const cachePromises = urlsToCache.map(urlToCache => {
+            return cache.add(new Request(urlToCache, {cache: 'reload'})).catch(err => {
+                console.warn(`Service Worker: Failed to cache ${urlToCache} during install:`, err);
+            });
+        });
+        return Promise.all(cachePromises);
       })
       .then(() => {
         console.log('Service Worker: Installation complete, skipping waiting.');
-        return self.skipWaiting(); // Force the waiting service worker to become the active service worker.
+        return self.skipWaiting(); 
       })
       .catch(error => {
-        console.error('Service Worker: Caching failed during install:', error);
+        console.error('Service Worker: Caching failed during install phase:', error);
       })
   );
 });
 
 // Activate event: Clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('Service Worker: Activating...');
+  console.log('Service Worker: Activating (' + CACHE_NAME + ')...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -58,7 +73,7 @@ self.addEventListener('activate', (event) => {
       );
     }).then(() => {
         console.log('Service Worker: Activation complete, claiming clients.');
-        return self.clients.claim(); // Take control of uncontrolled clients (open tabs) immediately.
+        return self.clients.claim(); 
     })
     .catch(error => {
         console.error('Service Worker: Activation failed:', error);
@@ -68,56 +83,43 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event: Serve cached content when offline, or fetch from network
 self.addEventListener('fetch', (event) => {
-  // We only want to cache GET requests.
   if (event.request.method !== 'GET') {
-    // For non-GET requests, just fetch from network without trying cache.
-    // event.respondWith(fetch(event.request)); // Uncomment if you want to explicitly handle non-GET
-    return;
+    return; // Only handle GET requests for caching
   }
 
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
+        // Cache hit - return response
         if (cachedResponse) {
-          // Serve from cache
-          // console.log('Service Worker: Serving from cache:', event.request.url);
           return cachedResponse;
         }
 
-        // Not in cache, fetch from network
-        // console.log('Service Worker: Fetching from network:', event.request.url);
+        // Not in cache - fetch from network
         return fetch(event.request).then(
           (networkResponse) => {
             // Check if we received a valid response
-            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic' && networkResponse.type !== 'cors') {
-              // If not a valid response (e.g. opaque responses from CDNs for external resources if not CORS-enabled, or errors)
-              // just return it without caching.
-              return networkResponse;
+            if (!networkResponse || networkResponse.status !== 200 || (networkResponse.type !== 'basic' && networkResponse.type !== 'cors')) {
+              return networkResponse; // Return non-cacheable responses directly
             }
 
-            // IMPORTANT: Clone the response. A response is a stream
-            // and because we want the browser to consume the response
-            // as well as the cache consuming the response, we need
-            // to clone it so we have two streams.
             const responseToCache = networkResponse.clone();
 
             caches.open(CACHE_NAME)
               .then(cache => {
-                // console.log('Service Worker: Caching new resource:', event.request.url);
+                // console.log('Service Worker: Caching new resource from network:', event.request.url);
                 cache.put(event.request, responseToCache);
               });
 
             return networkResponse;
           }
         ).catch(error => {
-          console.error('Service Worker: Fetch failed; possibly offline or network error.', error, event.request.url);
-          // Optionally, you could return a generic offline fallback page here
+          console.error('Service Worker: Fetch failed; network error or offline.', error, event.request.url);
+          // You could return a custom offline fallback page here if desired and cached
           // For example:
-          // if (event.request.mode === 'navigate') { // Only for page navigations
-          //   return caches.match('./offline.html'); // You'd need to create and cache offline.html
+          // if (event.request.mode === 'navigate' && urlsToCache.includes('./offline.html')) {
+          //   return caches.match('./offline.html');
           // }
-          // For this POS, if core assets are cached, it should mostly work.
-          // If an API call fails, the app's own error handling should take over.
         });
       })
   );
