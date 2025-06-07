@@ -122,7 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (savedMenu) { menuData = JSON.parse(savedMenu); }
         else {
             menuData = {
-                main: [ { id: `main_${Date.now()}_1`, name: 'Sutanghon Batchoy', price: 100 }, { id: `main_${Date.now()}_2`, name: 'Regular Batchoy', price: 75 }, { id: `main_${Date.now()}_3`, name: 'Special Batchoy', price: 95 }],
+                main: [ { id: `main_${Date.now()}_1`, name: 'Sutanghon Batchoy', price: 70 }, { id: `main_${Date.now()}_2`, name: 'Regular Batchoy', price: 50 }, { id: `main_${Date.now()}_3`, name: 'Special Batchoy', price: 60 }],
                 sides: [ { id: `side_${Date.now()}_1`, name: 'Boiled Egg', price: 10 }, { id: `side_${Date.now()}_2`, name: 'Chicharon', price: 15 }, { id: `side_${Date.now()}_3`, name: 'Cabbage', price: 5 }, { id: `side_${Date.now()}_4`, name: 'Onion Greens', price: 10 }]
             }; saveMenuData(); 
         }
@@ -377,7 +377,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const filteredOrders = dailySession.orders.filter(order => {
             if (currentOrderFilter === 'all') return true;
             if (currentOrderFilter === 'pending') return order.status === 'Pending';
-            if (currentOrderFilter === 'paid') return order.status === 'Paid'; // Could refine to "paid today" if needed
+            if (currentOrderFilter === 'paid') return order.status === 'Paid';
+            if (currentOrderFilter === 'cancelled') return order.status === 'Cancelled'; // ADDED THIS LINE
             return true;
         });
 
