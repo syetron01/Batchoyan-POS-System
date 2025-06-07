@@ -3,21 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Ilo-ilo Batchoy POS</title>
+    <title>Ilo-ilo Batchoy & Silog POS</title>
 
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#f59e0b"/>
-    <meta name="description" content="Cashier POS System for Ilo-ilo Batchoy.">
-    <!-- Point to an appropriate icon within your new structure -->
-    <link rel="apple-touch-icon" href="./images/ios/180.png"> <!-- Assuming 180.png exists in images/ios/ -->
-    <!-- Or, if you prefer a general one: <link rel="apple-touch-icon" href="./images/android/android-launchericon-192-192.png"> -->
+    <meta name="description" content="Cashier POS System for Ilo-ilo Batchoy & Silog.">
+    <link rel="apple-touch-icon" href="./images/ios/180.png">
     <link rel="manifest" href="./manifest.json">
-
-    <!-- Favicon links (optional but good practice) -->
-    <!-- Update these paths if you use them -->
-    <!-- <link rel="icon" type="image/png" sizes="32x32" href="./images/android/android-launchericon-32-32.png"> -->
-    <!-- <link rel="icon" type="image/png" sizes="16x16" href="./images/android/android-launchericon-16-16.png"> -->
-
+    <link rel="icon" type="image/png" sizes="32x32" href="./images/android/android-launchericon-32-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="./images/android/android-launchericon-16-16.png">
 
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -37,12 +31,12 @@
                         <text x="50" y="68" font-family="Poppins, serif" font-size="10" font-weight="bold" fill="#1e293b" text-anchor="middle">BATCHOY</text>
                     </svg>
                 </div>
-                <h1>Ilo-ilo Batchoy</h1>
+                <h1>Ilo-ilo Batchoy & Silog</h1>
             </div>
             <button id="btn-start-day" class="btn btn-confirm btn-large">Start Day</button>
         </div>
 
-        <!-- Screen: Main Application (Orders, New Order) -->
+        <!-- Screen: Main Application -->
         <div id="screen-main-app" class="screen">
             <header>
                 <div class="logo-header">
@@ -50,30 +44,26 @@
                         <circle cx="50" cy="50" r="48" fill="#fff7ed" stroke="#f59e0b" stroke-width="3"/>
                         <text x="50" y="58" font-family="Poppins, serif" font-size="30" fill="#8c5307" text-anchor="middle">🍜</text>
                     </svg>
-                    <span>Ilo-ilo Batchoy</span>
+                    <span>Ilo-ilo Batchoy & Silog</span>
                 </div>
                 <div class="session-info">
                     <span>Daily Earnings: <strong id="daily-earnings">₱0.00</strong></span>
                     <button id="btn-end-day" class="btn btn-danger">End Day</button>
                 </div>
             </header>
-
             <div class="main-actions-bar">
                 <button id="btn-settings" class="btn"><i class="fas fa-cog"></i> Settings</button>
             </div>
-
             <div class="main-controls">
                 <button id="btn-new-order" class="btn btn-primary btn-large">New Customer / Order</button>
                 <button id="btn-view-report" class="btn btn-secondary">View Daily Report</button>
             </div>
-            
             <div class="order-filters">
                 <button class="btn btn-filter active" data-filter="all">All</button>
                 <button class="btn btn-filter" data-filter="pending">Pending</button>
                 <button class="btn btn-filter" data-filter="paid">Paid</button> 
                 <button class="btn btn-filter" data-filter="cancelled">Cancelled</button>
             </div>
-
             <h2 class="section-title"><span>Active Orders</span></h2>
             <div id="orders-list-container">
                 <p id="no-orders-message">No active orders yet.</p>
@@ -104,12 +94,28 @@
             </div>
         </div>
 
-        <!-- Screen: Item Selection (Batchoy / Add-ons) -->
-        <div id="screen-item-selection" class="screen">
-            <h2 id="item-selection-title" class="section-title">BATCHOY</h2>
-            <div id="item-selection-grid">
-                <!-- Item cards will be dynamically inserted here -->
+        <!-- Screen: Primary Category Selection -->
+        <div id="screen-primary-category-selection" class="screen">
+            <h2 class="section-title">Choose Order Category</h2>
+            <div class="category-type-selection">
+                <button class="category-type-btn" data-category="batchoy">
+                    <i class="fas fa-utensils icon-category"></i>
+                    <h3>Batchoy</h3>
+                </button>
+                <button class="category-type-btn" data-category="silog">
+                    <i class="fas fa-egg icon-category"></i>
+                    <h3>Silog</h3>
+                </button>
             </div>
+            <div class="action-buttons">
+                 <button id="btn-cancel-category-selection" class="btn btn-secondary">Back</button>
+            </div>
+        </div>
+
+        <!-- Screen: Item Selection -->
+        <div id="screen-item-selection" class="screen">
+            <h2 id="item-selection-title" class="section-title">SELECT ITEMS</h2>
+            <div id="item-selection-grid"></div>
             <div class="item-selection-actions">
                 <button id="btn-item-selection-back" class="btn btn-secondary">Back</button>
                 <button id="btn-item-selection-finish" class="btn btn-confirm" style="display:none;">Finish Order</button>
@@ -121,7 +127,7 @@
         <div id="modal-order-details" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Order Details</h2>
+                    <h2 id="order-detail-modal-title">Order Details</h2>
                     <button id="btn-close-modal" class="close-button">×</button>
                 </div>
                 <div id="order-details-content">
@@ -133,17 +139,17 @@
                         <span id="detail-order-datetime">Date & Time</span>
                         <span id="detail-order-table">Table/Type</span>
                     </div>
-
+                    <div class="detail-row" id="detail-primary-category-row">
+                        <span id="detail-primary-category-label">Category:</span>
+                        <span id="detail-primary-category-value">N/A</span>
+                    </div>
                     <h3>Main Items</h3>
                     <ul id="detail-main-items-list"></ul>
-                    
                     <h3>Side Dishes</h3>
                     <ul id="detail-side-dishes-list"></ul>
-
                     <div class="order-total-section">
                         <strong>Total Amount: <span id="detail-total-price">₱0.00</span></strong>
                     </div>
-                    
                     <textarea id="detail-customer-note" placeholder="Optional Customer Note..."></textarea>
                 </div>
                 <div id="order-details-actions" class="modal-actions">
@@ -158,9 +164,7 @@
         <!-- Modal: Payment Method -->
         <div id="modal-payment-method" class="modal">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Select Payment Method</h2>
-                </div>
+                <div class="modal-header"><h2>Select Payment Method</h2></div>
                 <div class="payment-options">
                     <button class="btn btn-payment" data-method="Cash">Cash</button>
                     <button class="btn btn-payment" data-method="GCash">GCash</button>
@@ -172,9 +176,7 @@
         <!-- Modal: Custom Confirmation -->
         <div id="modal-confirmation" class="modal">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h2 id="confirmation-title">Confirm Action</h2>
-                </div>
+                <div class="modal-header"><h2 id="confirmation-title">Confirm Action</h2></div>
                 <p id="confirmation-message">Are you sure?</p>
                 <div class="modal-actions confirmation-actions">
                     <button id="btn-confirm-action" class="btn btn-confirm">Confirm</button>
@@ -210,15 +212,28 @@
             <h2 class="section-title">Settings - Menu Management</h2>
             
             <div class="menu-management-section">
-                <h3>Main Menu (Batchoy)</h3>
-                <div id="main-menu-items-list" class="menu-items-display-list"></div>
-                <button id="btn-add-main-item" class="btn btn-primary">Add New Batchoy Item</button>
+                <h3>Batchoy Menu</h3>
+                <div id="batchoy-menu-items-list" class="menu-items-display-list"></div>
+                <button id="btn-add-batchoy-item" class="btn btn-primary">Add New Batchoy Item</button>
+            </div>
+            <!-- NEW Section for Batchoy Sides -->
+            <div class="menu-management-section">
+                <h3>Batchoy Side Dishes</h3>
+                <div id="batchoy-side-menu-items-list" class="menu-items-display-list"></div>
+                <button id="btn-add-batchoy-side-item" class="btn btn-primary">Add Batchoy Side Dish</button>
             </div>
 
+
             <div class="menu-management-section">
-                <h3>Side Dishes (Add-ons)</h3>
-                <div id="side-menu-items-list" class="menu-items-display-list"></div>
-                <button id="btn-add-side-item" class="btn btn-primary">Add New Side Dish</button>
+                <h3>Silog Menu</h3>
+                <div id="silog-menu-items-list" class="menu-items-display-list"></div>
+                <button id="btn-add-silog-item" class="btn btn-primary">Add New Silog Item</button>
+            </div>
+            <!-- NEW Section for Silog Sides -->
+            <div class="menu-management-section">
+                <h3>Silog Side Dishes</h3>
+                <div id="silog-side-menu-items-list" class="menu-items-display-list"></div>
+                <button id="btn-add-silog-side-item" class="btn btn-primary">Add Silog Side Dish</button>
             </div>
             
             <div class="action-buttons">
@@ -229,23 +244,17 @@
         <!-- Modal: Add/Edit Menu Item -->
         <div id="modal-edit-menu-item" class="modal">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h2 id="edit-menu-item-modal-title">Edit Item</h2>
-                    <button id="btn-close-edit-menu-modal" class="close-button">×</button>
-                </div>
+                <div class="modal-header"><h2 id="edit-menu-item-modal-title">Edit Item</h2><button id="btn-close-edit-menu-modal" class="close-button">×</button></div>
                 <form id="form-edit-menu-item">
                     <input type="hidden" id="edit-item-id">
-                    <input type="hidden" id="edit-item-type"> 
+                    <input type="hidden" id="edit-item-menu-category"> <!-- 'batchoy', 'silog' -->
+                    <input type="hidden" id="edit-item-type"> <!-- 'main', 'side' -->
                     
                     <label for="edit-item-name">Item Name:</label>
                     <input type="text" id="edit-item-name" required>
-                    
                     <label for="edit-item-price">Price (₱):</label>
                     <input type="number" id="edit-item-price" step="0.01" min="0" required>
-                    
-                    <div class="modal-actions">
-                        <button type="submit" class="btn btn-confirm">Save Changes</button>
-                    </div>
+                    <div class="modal-actions"><button type="submit" class="btn btn-confirm">Save Changes</button></div>
                 </form>
             </div>
         </div>

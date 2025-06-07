@@ -334,5 +334,105 @@ header {
 .btn-danger { background-color: var(--btn-danger-bg); }
 .btn-secondary { background-color: var(--btn-secondary-bg); }
 
+/* ... (all existing CSS rules) ... */
+
+/* NEW STYLES for Primary Category Selection Screen */
+#screen-primary-category-selection .section-title {
+    margin-bottom: 30px; /* More space for category buttons */
+}
+
+.category-type-selection {
+    display: flex;
+    flex-direction: column; /* Stack vertically for mobile */
+    gap: 20px; /* Space between category buttons */
+    margin: 20px 0;
+    width: 100%;
+}
+
+.category-type-btn {
+    flex: 1; 
+    background-color: #fff7ed; 
+    border: 2px solid #f97316; 
+    color: var(--text-primary);
+    padding: 25px 15px; /* Generous padding */
+    border-radius: 8px;
+    font-size: 20px; /* Larger font for category name */
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+    display: flex; /* For icon and text alignment */
+    flex-direction: column; /* Stack icon above text */
+    align-items: center;
+    justify-content: center;
+}
+
+.category-type-btn:hover {
+    background-color: #feedd9;
+}
+.category-type-btn:active {
+    transform: scale(0.98);
+}
+
+.category-type-btn .icon-category {
+    font-size: 36px; /* Larger icon */
+    margin-bottom: 10px;
+    color: #f59e0b; /* Amber color for icons */
+}
+
+.category-type-btn h3 {
+    margin: 0;
+    font-family: var(--font-family); /* Use Poppins or your main font */
+    font-weight: 600;
+    font-size: 22px;
+}
+
+#screen-primary-category-selection .action-buttons {
+    margin-top: 30px; /* Space above the back button */
+}
+#screen-primary-category-selection .action-buttons .btn {
+    width: 100%; /* Make back button full width */
+}
+
+/* Responsive for slightly wider screens if desired for category buttons */
+@media (min-width: 400px) {
+    .category-type-selection {
+        flex-direction: row; /* Side by side on wider screens */
+        justify-content: space-around;
+    }
+    .category-type-btn {
+        min-width: 150px; /* Ensure they don't get too squished */
+    }
+}
+
+/* Adjustments for Settings Screen Menu Sections */
+#screen-settings .menu-management-section h3 {
+    font-size: 18px; /* Keep consistent */
+}
+
+/* Style for category display on order card and details (optional if you want specific styling) */
+.order-category-chip {
+    background-color: #e0e7ff; /* Example: Light indigo */
+    color: #3730a3; /* Example: Darker indigo */
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-left: 5px; /* Space it from other info */
+    border: 1px solid #c7d2fe;
+}
+#detail-primary-category-row {
+    background-color: transparent; /* Make it distinct from other detail rows if needed */
+    padding: 5px 0; /* Adjust padding */
+}
+#detail-primary-category-label {
+    font-weight: normal;
+    color: var(--text-secondary);
+}
+#detail-primary-category-value {
+    font-weight: 600;
+    color: var(--price-blue); /* Example color */
+}
+
 /* Utilities */
 .hidden { display: none !important; }

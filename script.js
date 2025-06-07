@@ -7,17 +7,49 @@ document.addEventListener('DOMContentLoaded', () => {
             cashEarnings: 0, gcashEarnings: 0, cashCount: 0, gcashCount: 0,
         }
     };
-    let menuData = { main: [], sides: [] };
-    const MENU_STORAGE_KEY = 'iloiloBatchoyPOS_menuData';
+    
+    // MODIFIED: Menu data updated to match screenshot and ensure separation
+    let menuData = {
+        batchoy: { 
+            main: [
+                { id: `batchoy_main_${Date.now()}_1`, name: 'Sutanghon Batchoy', price: 100 },
+                { id: `batchoy_main_${Date.now()}_2`, name: 'Regular Batchoy', price: 75 },
+                { id: `batchoy_main_${Date.now()}_3`, name: 'Special Batchoy', price: 95 }
+            ],
+            sides: [ // Batchoy-specific sides
+                { id: `batchoy_side_${Date.now()}_1`, name: 'Boiled Egg', price: 10.00 },
+                { id: `batchoy_side_${Date.now()}_2`, name: 'Chicharon', price: 15.00 },
+                { id: `batchoy_side_${Date.now()}_3`, name: 'Cabbage', price: 5.00 },
+                { id: `batchoy_side_${Date.now()}_4`, name: 'Onion Greens', price: 10.00 }
+            ]
+        },
+        silog: { 
+            main: [
+                { id: `silog_main_${Date.now()}_1`, name: 'Tapsilog', price: 85 },
+                { id: `silog_main_${Date.now()}_2`, name: 'Tocilog', price: 80 },
+                { id: `silog_main_${Date.now()}_3`, name: 'Longsilog', price: 80 },
+                { id: `silog_main_${Date.now()}_4`, name: 'Hotsilog', price: 75 }
+            ],
+            sides: [ // Silog-specific sides
+                { id: `silog_side_${Date.now()}_1`, name: 'Sliced Tomatoes', price: 8.00 },
+                { id: `silog_side_${Date.now()}_2`, name: 'Sliced Cucumbers', price: 8.00 },
+                { id: `silog_side_${Date.now()}_3`, name: 'Atchara (Pickled Papaya)', price: 15.00 }
+            ]
+        }
+    };
+    // IMPORTANT: Incremented version number to ensure old, incorrect data in local storage is ignored.
+    const MENU_STORAGE_KEY = 'iloiloBatchoyPOS_menuData_v5'; 
+
     let currentOrderBuilder = {
         type: null, tableNumber: null, items: {},
+        primaryCategory: null, 
         isEditingOrderId: null, 
-        editMode: null, // null, 'addMore', or 'fullEdit'
+        editMode: null, 
         currentStep: null 
     };
-    let editingMenuItem = { id: null, type: null };
-    let currentOrderFilter = 'all'; // 'all', 'pending', 'paid'
-    let confirmationCallback = null; // For custom confirmation modal
+    let editingMenuItem = { id: null, menuCategory: null, itemType: null }; // menuCategory: 'batchoy'/'silog', itemType: 'main'/'side'
+    let currentOrderFilter = 'all';
+    let confirmationCallback = null;
 
     // --- DOM ELEMENTS ---
     const screens = {
@@ -25,6 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mainApp: document.getElementById('screen-main-app'),
         newOrderType: document.getElementById('screen-new-order-type'),
         tableNumber: document.getElementById('screen-table-number'),
+        primaryCategorySelection: document.getElementById('screen-primary-category-selection'),
         itemSelection: document.getElementById('screen-item-selection'),
         dailyReport: document.getElementById('screen-daily-report'),
         settings: document.getElementById('screen-settings'),
@@ -47,6 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputTableNumber = document.getElementById('input-table-number');
     const btnConfirmTableNumber = document.getElementById('btn-confirm-table-number');
     const btnCancelTableNumber = document.getElementById('btn-cancel-table-number');
+    const categoryTypeButtons = document.querySelectorAll('.category-type-btn');
+    const btnCancelCategorySelection = document.getElementById('btn-cancel-category-selection');
     const btnItemSelectionNext = document.getElementById('btn-item-selection-next');
     const btnItemSelectionBack = document.getElementById('btn-item-selection-back');
     const btnItemSelectionFinish = document.getElementById('btn-item-selection-finish');
@@ -60,8 +95,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnReportBackToMain = document.getElementById('btn-report-back-to-main');
     const btnExportReport = document.getElementById('btn-export-report');
     const btnSettingsBackToMain = document.getElementById('btn-settings-back-to-main');
-    const btnAddMainItem = document.getElementById('btn-add-main-item');
-    const btnAddSideItem = document.getElementById('btn-add-side-item');
+    
+    const btnAddBatchoyItem = document.getElementById('btn-add-batchoy-item');
+    const btnAddBatchoySideItem = document.getElementById('btn-add-batchoy-side-item'); 
+    const btnAddSilogItem = document.getElementById('btn-add-silog-item');
+    const btnAddSilogSideItem = document.getElementById('btn-add-silog-side-item'); 
+    
     const btnCloseEditMenuModal = document.getElementById('btn-close-edit-menu-modal');
     const formEditMenuItem = document.getElementById('form-edit-menu-item');
     const filterButtons = document.querySelectorAll('.btn-filter');
@@ -74,10 +113,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const noOrdersMessage = document.getElementById('no-orders-message');
     const itemSelectionTitle = document.getElementById('item-selection-title');
     const itemSelectionGrid = document.getElementById('item-selection-grid');
+    const orderDetailModalTitle = document.getElementById('order-detail-modal-title');
     const detailOrderId = document.getElementById('detail-order-id');
     const detailOrderStatus = document.getElementById('detail-order-status');
     const detailOrderDatetime = document.getElementById('detail-order-datetime');
     const detailOrderTable = document.getElementById('detail-order-table');
+    const detailPrimaryCategoryRow = document.getElementById('detail-primary-category-row');
+    const detailPrimaryCategoryValue = document.getElementById('detail-primary-category-value');
     const detailMainItemsList = document.getElementById('detail-main-items-list');
     const detailSideDishesList = document.getElementById('detail-side-dishes-list');
     const detailTotalPrice = document.getElementById('detail-total-price');
@@ -92,15 +134,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const reportPaidOrders = document.getElementById('report-paid-orders');
     const reportPendingOrders = document.getElementById('report-pending-orders');
     const reportCancelledOrders = document.getElementById('report-cancelled-orders');
-    const mainMenuItemsList = document.getElementById('main-menu-items-list');
-    const sideMenuItemsList = document.getElementById('side-menu-items-list');
+    
+    const batchoyMenuItemsList = document.getElementById('batchoy-menu-items-list');
+    const batchoySideMenuItemsList = document.getElementById('batchoy-side-menu-items-list'); 
+    const silogMenuItemsList = document.getElementById('silog-menu-items-list');    
+    const silogSideMenuItemsList = document.getElementById('silog-side-menu-items-list'); 
+    
     const editMenuItemModalTitle = document.getElementById('edit-menu-item-modal-title');
     const editItemIdInput = document.getElementById('edit-item-id');
-    const editItemTypeInput = document.getElementById('edit-item-type');
+    const editItemMenuCategoryInput = document.getElementById('edit-item-menu-category'); 
+    const editItemTypeInput = document.getElementById('edit-item-type'); 
     const editItemNameInput = document.getElementById('edit-item-name');
     const editItemPriceInput = document.getElementById('edit-item-price');
     const confirmationTitle = document.getElementById('confirmation-title');
     const confirmationMessage = document.getElementById('confirmation-message');
+
 
     // --- LOCAL STORAGE & SESSION ---
     const SESSION_STORAGE_KEY = 'iloiloBatchoyPOS_session';
@@ -119,12 +167,14 @@ document.addEventListener('DOMContentLoaded', () => {
     function clearSessionStorage() { localStorage.removeItem(SESSION_STORAGE_KEY); }
     function loadMenuData() {
         const savedMenu = localStorage.getItem(MENU_STORAGE_KEY);
-        if (savedMenu) { menuData = JSON.parse(savedMenu); }
+        if (savedMenu) { 
+            menuData = JSON.parse(savedMenu); 
+            if (!menuData.batchoy) menuData.batchoy = { main: [], sides: [] };
+            if (!menuData.silog) menuData.silog = { main: [], sides: [] };
+        }
         else {
-            menuData = {
-                main: [ { id: `main_${Date.now()}_1`, name: 'Sutanghon Batchoy', price: 70 }, { id: `main_${Date.now()}_2`, name: 'Regular Batchoy', price: 50 }, { id: `main_${Date.now()}_3`, name: 'Special Batchoy', price: 60 }],
-                sides: [ { id: `side_${Date.now()}_1`, name: 'Boiled Egg', price: 10 }, { id: `side_${Date.now()}_2`, name: 'Chicharon', price: 15 }, { id: `side_${Date.now()}_3`, name: 'Cabbage', price: 5 }, { id: `side_${Date.now()}_4`, name: 'Onion Greens', price: 10 }]
-            }; saveMenuData(); 
+            // Default menuData already defined with category-specific sides
+            saveMenuData(); 
         }
     }
     function saveMenuData() { localStorage.setItem(MENU_STORAGE_KEY, JSON.stringify(menuData)); }
@@ -137,7 +187,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function showConfirmationModal(title, message, onConfirm) {
         confirmationTitle.textContent = title;
         confirmationMessage.textContent = message;
-        confirmationCallback = onConfirm; // Store the callback
+        confirmationCallback = onConfirm;
         showModal('confirmation');
     }
 
@@ -158,7 +208,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else { dailySession.active = true; }
         updateDailyEarningsDisplay(); renderOrdersList(); showScreen('mainApp'); saveSession();
     }
-    function endDayAction() { // Renamed from endDay to avoid conflict with button ID if any
+    function endDayAction() {
         dailySession.active = false; dailySession.endTime = new Date().toISOString();
         calculateDailyTotals(); saveSession(); 
         populateDailyReport(); showScreen('dailyReport');
@@ -193,19 +243,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- ORDER CREATION & MANAGEMENT ---
     function resetOrderBuilder() {
-        currentOrderBuilder = { type: null, tableNumber: null, items: {}, isEditingOrderId: null, editMode: null, currentStep: null };
+        currentOrderBuilder = { type: null, tableNumber: null, items: {}, primaryCategory: null, isEditingOrderId: null, editMode: null, currentStep: null };
     }
     function startNewOrder() { resetOrderBuilder(); showScreen('newOrderType'); }
+    
     function handleOrderTypeSelection(type) {
         currentOrderBuilder.type = type;
-        if (type === 'dine-in') { inputTableNumber.value = ''; showScreen('tableNumber'); }
-        else { currentOrderBuilder.tableNumber = 'Take-out'; proceedToItemSelection('batchoy'); }
+        if (type === 'dine-in') { 
+            inputTableNumber.value = ''; 
+            showScreen('tableNumber'); 
+        } else { 
+            currentOrderBuilder.tableNumber = 'Take-out';
+            showScreen('primaryCategorySelection');
+        }
     }
+    
     function handleTableNumberConfirm() {
         const tableNum = inputTableNumber.value.trim();
         if (tableNum && !isNaN(tableNum) && parseInt(tableNum) > 0) {
-            currentOrderBuilder.tableNumber = `Table ${tableNum}`; proceedToItemSelection('batchoy');
+            currentOrderBuilder.tableNumber = `Table ${tableNum}`; 
+            showScreen('primaryCategorySelection');
         } else { alert('Please enter a valid table number.'); }
+    }
+
+    function handlePrimaryCategorySelection(category) {
+        currentOrderBuilder.primaryCategory = category;
+        proceedToItemSelection('mainItems');
     }
 
     function proceedToItemSelection(step) { 
@@ -215,61 +278,73 @@ document.addEventListener('DOMContentLoaded', () => {
             titlePrefix = currentOrderBuilder.editMode === 'fullEdit' ? `Editing Order #${String(currentOrderBuilder.isEditingOrderId).padStart(4, '0')}` : `Adding to Order #${String(currentOrderBuilder.isEditingOrderId).padStart(4, '0')}`;
             titlePrefix += " - ";
         }
-        itemSelectionTitle.textContent = titlePrefix + (step === 'batchoy' ? 'BATCHOY' : 'ADD ONS');
         
-        const itemsToDisplay = step === 'batchoy' ? menuData.main : menuData.sides;
-        if (itemsToDisplay.length === 0 && step === 'batchoy') {
-            alert(`No Batchoy items configured. Please add some in Settings.`);
-            showScreen('mainApp'); return;
+        let itemsToDisplay;
+        let categoryName = currentOrderBuilder.primaryCategory.charAt(0).toUpperCase() + currentOrderBuilder.primaryCategory.slice(1);
+
+        if (step === 'mainItems') {
+            itemsToDisplay = menuData[currentOrderBuilder.primaryCategory]?.main || [];
+            itemSelectionTitle.textContent = titlePrefix + categoryName + " Menu";
+        } else { // This is the 'sideItems' step
+            // THIS IS THE CORRECTED LOGIC: It specifically gets the 'sides' array from the selected primary category.
+            itemsToDisplay = menuData[currentOrderBuilder.primaryCategory]?.sides || []; 
+            itemSelectionTitle.textContent = titlePrefix + "Add-ons for " + categoryName;
         }
-        if (itemsToDisplay.length === 0 && step === 'addons') { // If no addons, skip to finalize
-            finalizeOrder(); return;
+        
+        if (itemsToDisplay.length === 0 && step === 'mainItems') {
+            alert(`No ${categoryName} items configured. Please add some in Settings.`);
+            showScreen('primaryCategorySelection'); 
+            return;
+        }
+        
+        const hasSidesForCurrentCategory = menuData[currentOrderBuilder.primaryCategory]?.sides?.length > 0;
+
+        if (itemsToDisplay.length === 0 && step === 'sideItems') { // If no sides for this category, finalize order.
+            finalizeOrder(); 
+            return; 
         }
 
-        populateItemSelectionGrid(itemsToDisplay, step); 
+        populateItemSelectionGrid(itemsToDisplay, step === 'mainItems' ? 'main' : 'side'); 
         
-        if (step === 'batchoy') {
-            btnItemSelectionNext.textContent = menuData.sides.length > 0 ? 'Add Sides' : 'Review Order';
+        // Adjust button text and visibility based on the step
+        if (step === 'mainItems') {
+            btnItemSelectionNext.textContent = hasSidesForCurrentCategory ? `Add-ons` : 'Review Order';
             btnItemSelectionFinish.style.display = 'inline-flex'; 
-        } else { 
+        } else { // 'sideItems' step
             btnItemSelectionNext.textContent = 'Review Order';
             btnItemSelectionFinish.style.display = 'none'; 
         }
         showScreen('itemSelection');
     }
 
-    function populateItemSelectionGrid(items, itemCategory) { 
+    function populateItemSelectionGrid(items, itemTypeForDataAttr) {
         itemSelectionGrid.innerHTML = '';
         items.forEach(item => {
             const currentQuantity = currentOrderBuilder.items[item.name]?.quantity || 0;
             const card = document.createElement('div');
             card.className = 'item-card-select';
-            const itemTypeAttribute = itemCategory === 'batchoy' ? 'main' : 'side';
             card.innerHTML = `
                 <span class="item-name">${item.name}</span>
                 <span class="item-price">₱${item.price.toFixed(2)}</span>
                 <div class="quantity-controls">
-                    <button class="btn-qty minus" data-item-id="${item.id}" data-item-name="${item.name}" data-item-price="${item.price}" data-item-type="${itemTypeAttribute}">-</button>
-                    <input type="number" class="item-quantity-input" id="qty-input-${item.id}" value="${currentQuantity}" min="0" data-item-id="${item.id}" data-item-name="${item.name}" data-item-price="${item.price}" data-item-type="${itemTypeAttribute}">
-                    <button class="btn-qty plus" data-item-id="${item.id}" data-item-name="${item.name}" data-item-price="${item.price}" data-item-type="${itemTypeAttribute}">+</button>
+                    <button class="btn-qty minus" data-item-id="${item.id}" data-item-name="${item.name}" data-item-price="${item.price}" data-item-type="${itemTypeForDataAttr}">-</button>
+                    <input type="number" class="item-quantity-input" id="qty-input-${item.id}" value="${currentQuantity}" min="0" data-item-id="${item.id}" data-item-name="${item.name}" data-item-price="${item.price}" data-item-type="${itemTypeForDataAttr}">
+                    <button class="btn-qty plus" data-item-id="${item.id}" data-item-name="${item.name}" data-item-price="${item.price}" data-item-type="${itemTypeForDataAttr}">+</button>
                 </div>
             `;
             itemSelectionGrid.appendChild(card);
         });
-
         itemSelectionGrid.querySelectorAll('.btn-qty').forEach(btn => btn.addEventListener('click', handleQuantityButtonClick));
         itemSelectionGrid.querySelectorAll('.item-quantity-input').forEach(input => input.addEventListener('change', handleQuantityInputChange));
     }
     
     function updateItemQuantityInBuilder(itemName, newQuantity, itemPrice, itemType, itemId) {
-        newQuantity = Math.max(0, parseInt(newQuantity) || 0); // Ensure valid number, min 0
-        
+        newQuantity = Math.max(0, parseInt(newQuantity) || 0);
         if (newQuantity > 0) {
             currentOrderBuilder.items[itemName] = { quantity: newQuantity, price: itemPrice, type: itemType };
         } else {
             delete currentOrderBuilder.items[itemName];
         }
-        // Update the corresponding input field if it wasn't the source of the change
         const inputField = document.getElementById(`qty-input-${itemId}`);
         if (inputField && parseInt(inputField.value) !== newQuantity) {
             inputField.value = newQuantity;
@@ -281,14 +356,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const itemId = button.dataset.itemId;
         const inputField = document.getElementById(`qty-input-${itemId}`);
         let currentVal = parseInt(inputField.value) || 0;
-
-        if (button.classList.contains('plus')) {
-            currentVal++;
-        } else if (button.classList.contains('minus') && currentVal > 0) {
-            currentVal--;
-        }
+        if (button.classList.contains('plus')) { currentVal++; }
+        else if (button.classList.contains('minus') && currentVal > 0) { currentVal--; }
         inputField.value = currentVal;
-        // Trigger change event to consolidate update logic
         inputField.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
@@ -299,34 +369,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const itemType = inputField.dataset.itemType;
         const itemId = inputField.dataset.itemId;
         let newQuantity = parseInt(inputField.value) || 0;
-
-        if (newQuantity < 0) { // Prevent negative quantities
-            newQuantity = 0;
-            inputField.value = 0;
-        }
+        if (newQuantity < 0) { newQuantity = 0; inputField.value = 0; }
         updateItemQuantityInBuilder(itemName, newQuantity, itemPrice, itemType, itemId);
     }
     
     function handleItemSelectionNext() {
-        if (currentOrderBuilder.currentStep === 'batchoy') {
-            if (menuData.sides.length > 0) { proceedToItemSelection('addons'); }
-            else { finalizeOrder(); }
-        } else { finalizeOrder(); }
+        if (currentOrderBuilder.currentStep === 'mainItems') {
+            const hasSidesForCurrentCategory = menuData[currentOrderBuilder.primaryCategory]?.sides?.length > 0;
+            if (hasSidesForCurrentCategory) { 
+                proceedToItemSelection('sideItems'); 
+            } else { 
+                finalizeOrder(); 
+            }
+        } else { // Currently on 'sideItems' step, so next is to finalize
+            finalizeOrder(); 
+        }
     }
 
     function handleItemSelectionBack() {
-        // Clear items for the current step before going back
-        const itemTypeToClear = currentOrderBuilder.currentStep === 'batchoy' ? 'main' : 'side';
+        // Clear items from the current step before going back
+        const itemTypeToClear = currentOrderBuilder.currentStep === 'mainItems' ? 'main' : 'side';
         for (const itemName in currentOrderBuilder.items) {
             if (currentOrderBuilder.items[itemName].type === itemTypeToClear) {
                 delete currentOrderBuilder.items[itemName];
             }
         }
 
-        if (currentOrderBuilder.currentStep === 'addons') { proceedToItemSelection('batchoy'); }
-        else { 
-            if (currentOrderBuilder.type === 'dine-in') { showScreen('tableNumber'); }
-            else { showScreen('newOrderType'); }
+        if (currentOrderBuilder.currentStep === 'sideItems') { 
+            // If on sides, go back to main items of the same category
+            proceedToItemSelection('mainItems'); 
+        } else { 
+            // If on main items, go back to category selection
+            showScreen('primaryCategorySelection'); 
         }
     }
 
@@ -337,17 +411,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (orderItems.length === 0) {
             alert('Please select at least one item.');
-            proceedToItemSelection(currentOrderBuilder.currentStep || 'batchoy'); // Stay or go back
+            proceedToItemSelection(currentOrderBuilder.currentStep || 'mainItems');
             return;
         }
 
         if (currentOrderBuilder.isEditingOrderId !== null) {
             const order = dailySession.orders.find(o => o.id === currentOrderBuilder.isEditingOrderId);
             if (order) {
-                if (currentOrderBuilder.editMode === 'fullEdit') {
-                    order.items = orderItems; // Replace all items
-                } else { // 'addMore' or if editMode is not explicitly 'fullEdit'
-                    orderItems.forEach(newItem => { // Merge/add items
+                if (currentOrderBuilder.editMode === 'fullEdit') { order.items = orderItems; }
+                else { 
+                    orderItems.forEach(newItem => {
                         const existingItem = order.items.find(item => item.name === newItem.name);
                         if (existingItem) { existingItem.quantity += newItem.quantity; } 
                         else { order.items.push(newItem); }
@@ -355,11 +428,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 order.totalPrice = calculateOrderTotal(order.items);
                 if (modals.orderDetails.classList.contains('active')) closeModal('orderDetails');
-                openOrderDetails(order.id); // Re-open to show changes
+                openOrderDetails(order.id); 
             }
         } else {
             const newOrder = {
                 id: dailySession.orderIdCounter++, type: currentOrderBuilder.type, tableNumber: currentOrderBuilder.tableNumber,
+                primaryCategory: currentOrderBuilder.primaryCategory, 
                 items: orderItems, totalPrice: calculateOrderTotal(orderItems), status: 'Pending', 
                 timestamp: new Date().toISOString(), customerNote: ''
             };
@@ -378,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentOrderFilter === 'all') return true;
             if (currentOrderFilter === 'pending') return order.status === 'Pending';
             if (currentOrderFilter === 'paid') return order.status === 'Paid';
-            if (currentOrderFilter === 'cancelled') return order.status === 'Cancelled'; // ADDED THIS LINE
+            if (currentOrderFilter === 'cancelled') return order.status === 'Cancelled';
             return true;
         });
 
@@ -396,9 +470,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const itemsCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
             let statusText = order.status;
             if (order.status === 'Paid' && order.paymentMethod) { statusText += ` (${order.paymentMethod})`; }
+            const categoryChip = order.primaryCategory ? `<span class="order-category-chip">${order.primaryCategory.charAt(0).toUpperCase() + order.primaryCategory.slice(1)}</span>` : '';
             card.innerHTML = `
                 <div class="order-card-header"><span class="status-badge ${order.status.toLowerCase()}">${statusText}</span><span class="order-id">#${String(order.id).padStart(4, '0')}</span></div>
-                <div class="order-card-info"><span>${orderDate}</span><span>${orderTime}</span>${order.type === 'dine-in' ? `<span class="table-chip">${order.tableNumber}</span>` : '<span>Take-out</span>'}</div>
+                <div class="order-card-info">
+                    <span>${orderDate}</span><span>${orderTime}</span>
+                    ${order.type === 'dine-in' ? `<span class="table-chip">${order.tableNumber}</span>` : '<span>Take-out</span>'}
+                    ${categoryChip} 
+                </div>
                 <div class="order-card-summary">Items: ${itemsCount} | <strong>₱${order.totalPrice.toFixed(2)}</strong></div>`;
             card.addEventListener('click', () => openOrderDetails(order.id));
             ordersListContainer.appendChild(card);
@@ -408,12 +487,20 @@ document.addEventListener('DOMContentLoaded', () => {
     function openOrderDetails(orderId) {
         const order = dailySession.orders.find(o => o.id === orderId); if (!order) return;
         currentOrderBuilder.isEditingOrderId = order.id; 
+        currentOrderBuilder.primaryCategory = order.primaryCategory; 
+        orderDetailModalTitle.textContent = `Order Details (${order.primaryCategory.charAt(0).toUpperCase() + order.primaryCategory.slice(1)})`;
         detailOrderId.textContent = `Order ID: #${String(order.id).padStart(4, '0')}`;
         let statusText = order.status;
         if (order.status === 'Paid' && order.paymentMethod) { statusText += ` (${order.paymentMethod})`; }
         detailOrderStatus.textContent = statusText; detailOrderStatus.className = `status-badge ${order.status.toLowerCase()}`; 
         detailOrderDatetime.textContent = `${new Date(order.timestamp).toLocaleDateString()} ${new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
         detailOrderTable.textContent = order.type === 'dine-in' ? order.tableNumber : 'Take-out';
+        if(order.primaryCategory) {
+            detailPrimaryCategoryValue.textContent = order.primaryCategory.charAt(0).toUpperCase() + order.primaryCategory.slice(1);
+            detailPrimaryCategoryRow.style.display = 'flex';
+        } else {
+            detailPrimaryCategoryRow.style.display = 'none';
+        }
         detailMainItemsList.innerHTML = ''; detailSideDishesList.innerHTML = '';
         order.items.forEach(item => {
             const li = document.createElement('li');
@@ -425,7 +512,6 @@ document.addEventListener('DOMContentLoaded', () => {
         detailTotalPrice.textContent = `₱${order.totalPrice.toFixed(2)}`;
         detailCustomerNote.value = order.customerNote || '';
         detailCustomerNote.onchange = (e) => { order.customerNote = e.target.value; saveSession(); };
-
         const isPending = order.status === 'Pending';
         btnModalEditOrderItems.style.display = isPending ? 'block' : 'none';
         btnModalAddMore.style.display = isPending ? 'block' : 'none';
@@ -437,30 +523,29 @@ document.addEventListener('DOMContentLoaded', () => {
     function startEditOrderItems() {
         const orderId = currentOrderBuilder.isEditingOrderId; if (orderId === null) return;
         const order = dailySession.orders.find(o => o.id === orderId); if (!order) return;
-        resetOrderBuilder(); // Clear previous builder state but keep order context
+        resetOrderBuilder(); 
         currentOrderBuilder.isEditingOrderId = order.id;
-        currentOrderBuilder.editMode = 'fullEdit'; // Set mode to full edit
-        currentOrderBuilder.type = order.type; // Preserve order type and table
+        currentOrderBuilder.editMode = 'fullEdit'; 
+        currentOrderBuilder.type = order.type; 
         currentOrderBuilder.tableNumber = order.tableNumber;
-        // Pre-populate builder with existing items
+        currentOrderBuilder.primaryCategory = order.primaryCategory;
         order.items.forEach(item => {
             currentOrderBuilder.items[item.name] = { quantity: item.quantity, price: item.price, type: item.type };
         });
         closeModal('orderDetails');
-        proceedToItemSelection('batchoy'); 
+        proceedToItemSelection('mainItems'); 
     }
 
     function addMoreItemsToOrder() {
         const orderId = currentOrderBuilder.isEditingOrderId; if (orderId === null) return;
         const order = dailySession.orders.find(o => o.id === orderId); if (!order) return;
-        // Don't reset all of currentOrderBuilder, just items part for adding
         currentOrderBuilder.items = {}; 
         currentOrderBuilder.editMode = 'addMore';
-        // isEditingOrderId is already set from openOrderDetails
-        currentOrderBuilder.type = order.type; // Preserve order type and table
+        currentOrderBuilder.type = order.type; 
         currentOrderBuilder.tableNumber = order.tableNumber;
+        currentOrderBuilder.primaryCategory = order.primaryCategory;
         closeModal('orderDetails');
-        proceedToItemSelection('batchoy'); 
+        proceedToItemSelection('mainItems'); 
     }
 
     let orderToPayId = null; 
@@ -477,7 +562,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         closeModal('paymentMethod'); orderToPayId = null; currentOrderBuilder.isEditingOrderId = null; 
     }
-    function cancelOrderAction() { // Renamed
+    function cancelOrderAction() {
         const orderId = currentOrderBuilder.isEditingOrderId; if (orderId === null) return;
         const order = dailySession.orders.find(o => o.id === orderId);
         if (order && order.status === 'Pending') {
@@ -488,58 +573,107 @@ document.addEventListener('DOMContentLoaded', () => {
         closeModal('orderDetails'); currentOrderBuilder.isEditingOrderId = null;
     }
     function exportDailyReportCSV() {
-        let csv = "Order ID,Timestamp,Type,Table/Ref,Status,Payment Method,Total Price,Items (Main),Items (Sides),Customer Note\n";
+        let csv = "Order ID,Timestamp,Type,Table/Ref,Category,Status,Payment Method,Total Price,Items (Main),Items (Sides),Customer Note\n";
         dailySession.orders.forEach(o => {
             const main = o.items.filter(i=>i.type==='main').map(i=>`${i.name}(x${i.quantity})`).join('; ');
             const side = o.items.filter(i=>i.type==='side').map(i=>`${i.name}(x${i.quantity})`).join('; ');
-            csv += [o.id,new Date(o.timestamp).toLocaleString(),o.type,o.tableNumber||'N/A',o.status,o.paymentMethod||'N/A',o.totalPrice.toFixed(2),`"${main.replace(/"/g,'""')}"`,`"${side.replace(/"/g,'""')}"`,`"${(o.customerNote||'').replace(/"/g,'""')}"`].join(',')+"\n";
+            const category = o.primaryCategory ? o.primaryCategory.charAt(0).toUpperCase() + o.primaryCategory.slice(1) : 'N/A';
+            csv += [o.id,new Date(o.timestamp).toLocaleString(),o.type,o.tableNumber||'N/A', category, o.status,o.paymentMethod||'N/A',o.totalPrice.toFixed(2),`"${main.replace(/"/g,'""')}"`,`"${side.replace(/"/g,'""')}"`,`"${(o.customerNote||'').replace(/"/g,'""')}"`].join(',')+"\n";
         });
         csv += `\nSummary\nDate,${new Date(dailySession.startTime).toLocaleDateString()}\nTotal Orders,${dailySession.stats.totalOrders}\nTotal Earnings,${dailySession.totalEarnings.toFixed(2)}\nCash Earnings,${dailySession.stats.cashEarnings.toFixed(2)}\nCash Order Count,${dailySession.stats.cashCount}\nGCash Earnings,${dailySession.stats.gcashEarnings.toFixed(2)}\nGCash Order Count,${dailySession.stats.gcashCount}\nPaid Orders,${dailySession.stats.paid}\nPending Orders,${dailySession.stats.pending}\nCancelled Orders,${dailySession.stats.cancelled}\n`;
         const link = document.createElement("a"); link.setAttribute("href", encodeURI("data:text/csv;charset=utf-8,"+csv));
-        link.setAttribute("download", `IloiloBatchoy_Report_${new Date(dailySession.startTime).toISOString().split('T')[0]}.csv`);
+        link.setAttribute("download", `IloiloBatchoySilog_Report_${new Date(dailySession.startTime).toISOString().split('T')[0]}.csv`);
         document.body.appendChild(link); link.click(); document.body.removeChild(link);
     }
 
     // --- MENU CRUD ---
     function renderMenuForSettings() {
-        mainMenuItemsList.innerHTML = ''; sideMenuItemsList.innerHTML = '';
-        menuData.main.forEach(item => mainMenuItemsList.appendChild(createMenuItemEntryDOM(item, 'main')));
-        if (menuData.main.length === 0) mainMenuItemsList.innerHTML = '<p>No main menu items.</p>';
-        menuData.sides.forEach(item => sideMenuItemsList.appendChild(createMenuItemEntryDOM(item, 'side')));
-        if (menuData.sides.length === 0) sideMenuItemsList.innerHTML = '<p>No side dishes.</p>';
+        batchoyMenuItemsList.innerHTML = ''; 
+        batchoySideMenuItemsList.innerHTML = '';
+        silogMenuItemsList.innerHTML = '';    
+        silogSideMenuItemsList.innerHTML = '';
+
+        (menuData.batchoy?.main || []).forEach(item => batchoyMenuItemsList.appendChild(createMenuItemEntryDOM(item, 'batchoy', 'main')));
+        if (!menuData.batchoy?.main?.length) batchoyMenuItemsList.innerHTML = '<p>No Batchoy main items.</p>';
+        (menuData.batchoy?.sides || []).forEach(item => batchoySideMenuItemsList.appendChild(createMenuItemEntryDOM(item, 'batchoy', 'side')));
+        if (!menuData.batchoy?.sides?.length) batchoySideMenuItemsList.innerHTML = '<p>No Batchoy side dishes.</p>';
+
+        (menuData.silog?.main || []).forEach(item => silogMenuItemsList.appendChild(createMenuItemEntryDOM(item, 'silog', 'main')));
+        if (!menuData.silog?.main?.length) silogMenuItemsList.innerHTML = '<p>No Silog main items.</p>';
+        (menuData.silog?.sides || []).forEach(item => silogSideMenuItemsList.appendChild(createMenuItemEntryDOM(item, 'silog', 'side')));
+        if (!menuData.silog?.sides?.length) silogSideMenuItemsList.innerHTML = '<p>No Silog side dishes.</p>';
     }
-    function createMenuItemEntryDOM(item, type) {
+
+    function createMenuItemEntryDOM(item, menuCategory, itemType) {
         const div = document.createElement('div'); div.className = 'menu-item-entry';
-        div.innerHTML = `<div class="menu-item-info"><span class="name">${item.name}</span><span class="price">₱${item.price.toFixed(2)}</span></div><div class="menu-item-actions"><button class="btn btn-edit-item" data-id="${item.id}" data-type="${type}"><i class="fas fa-edit"></i></button><button class="btn btn-delete-item" data-id="${item.id}" data-type="${type}"><i class="fas fa-trash"></i></button></div>`;
-        div.querySelector('.btn-edit-item').addEventListener('click', () => openEditMenuItemModal(type, item.id));
-        div.querySelector('.btn-delete-item').addEventListener('click', () => deleteMenuItem(type, item.id));
+        div.innerHTML = `<div class="menu-item-info"><span class="name">${item.name}</span><span class="price">₱${item.price.toFixed(2)}</span></div><div class="menu-item-actions"><button class="btn btn-edit-item" data-id="${item.id}" data-menu-category="${menuCategory}" data-item-type="${itemType}"><i class="fas fa-edit"></i></button><button class="btn btn-delete-item" data-id="${item.id}" data-menu-category="${menuCategory}" data-item-type="${itemType}"><i class="fas fa-trash"></i></button></div>`;
+        div.querySelector('.btn-edit-item').addEventListener('click', () => openEditMenuItemModal(menuCategory, itemType, item.id));
+        div.querySelector('.btn-delete-item').addEventListener('click', () => deleteMenuItem(menuCategory, itemType, item.id));
         return div;
     }
-    function openEditMenuItemModal(type, itemId = null) {
-        editingMenuItem.type = type; editingMenuItem.id = itemId; formEditMenuItem.reset();
+
+    function openEditMenuItemModal(menuCategory, itemType, itemId = null) { 
+        editingMenuItem = { id: itemId, menuCategory: menuCategory, itemType: itemType };
+        formEditMenuItem.reset();
+        
+        let itemToEdit;
         if (itemId) {
-            const item = menuData[type].find(i => i.id === itemId); if (!item) return;
-            editMenuItemModalTitle.textContent = `Edit ${type==='main'?'Batchoy':'Side Dish'}`;
-            editItemIdInput.value = item.id; editItemNameInput.value = item.name; editItemPriceInput.value = item.price;
-        } else { editMenuItemModalTitle.textContent = `Add New ${type==='main'?'Batchoy':'Side Dish'}`; editItemIdInput.value = ''; }
-        editItemTypeInput.value = type; showModal('editMenuItem');
+            itemToEdit = menuData[menuCategory]?.[itemType]?.find(i => i.id === itemId);
+        }
+
+        let categoryNameText = menuCategory.charAt(0).toUpperCase() + menuCategory.slice(1);
+        let itemTypeText = itemType === 'main' ? 'Main Item' : 'Side Dish';
+        
+        if (itemId && itemToEdit) {
+            editMenuItemModalTitle.textContent = `Edit ${categoryNameText} ${itemTypeText}`;
+            editItemIdInput.value = itemToEdit.id; 
+            editItemNameInput.value = itemToEdit.name; 
+            editItemPriceInput.value = itemToEdit.price;
+        } else { 
+            editMenuItemModalTitle.textContent = `Add New ${categoryNameText} ${itemTypeText}`; 
+            editItemIdInput.value = ''; 
+        }
+        editItemMenuCategoryInput.value = menuCategory; 
+        editItemTypeInput.value = itemType;
+        showModal('editMenuItem');
     }
+
     formEditMenuItem.addEventListener('submit', (e) => {
         e.preventDefault();
-        const id = editItemIdInput.value, type = editItemTypeInput.value, name = editItemNameInput.value.trim(), price = parseFloat(editItemPriceInput.value);
+        const id = editItemIdInput.value;
+        const menuCategory = editItemMenuCategoryInput.value;
+        const itemType = editItemTypeInput.value;        
+        const name = editItemNameInput.value.trim();
+        const price = parseFloat(editItemPriceInput.value);
+
         if (!name || isNaN(price) || price < 0) { alert('Valid name and price required.'); return; }
-        if (id) { const idx = menuData[type].findIndex(i=>i.id===id); if(idx>-1) menuData[type][idx]={...menuData[type][idx],name,price};}
-        else { menuData[type].push({id:`${type}_${Date.now()}`,name,price});}
+        
+        if (!menuData[menuCategory]) menuData[menuCategory] = { main: [], sides: [] };
+        if (!menuData[menuCategory][itemType]) menuData[menuCategory][itemType] = [];
+
+        let targetArray = menuData[menuCategory][itemType];
+
+        if (id) { 
+            const idx = targetArray.findIndex(i=>i.id===id); 
+            if(idx>-1) targetArray[idx]={...targetArray[idx], name, price};
+        } else { 
+            targetArray.push({id:`${menuCategory}_${itemType}_${Date.now()}`, name, price});
+        }
         saveMenuData(); renderMenuForSettings(); closeModal('editMenuItem');
     });
-    function deleteMenuItem(type, itemId) {
+
+    function deleteMenuItem(menuCategory, itemType, itemId) {
+        let categoryNameText = menuCategory.charAt(0).toUpperCase() + menuCategory.slice(1);
+        let itemTypeText = itemType === 'main' ? 'main item' : 'side dish';
         showConfirmationModal(
             `Delete Item`,
-            `Are you sure you want to delete this ${type === 'main' ? 'menu' : 'side dish'} item? This cannot be undone.`,
+            `Are you sure you want to delete this ${categoryNameText} ${itemTypeText}? This cannot be undone.`,
             () => {
-                menuData[type] = menuData[type].filter(item => item.id !== itemId);
+                if (menuData[menuCategory] && menuData[menuCategory][itemType]) {
+                    menuData[menuCategory][itemType] = menuData[menuCategory][itemType].filter(item => item.id !== itemId);
+                }
                 saveMenuData(); renderMenuForSettings();
-                closeModal('confirmation'); // Close confirmation after action
+                closeModal('confirmation');
             }
         );
     }
@@ -556,7 +690,27 @@ document.addEventListener('DOMContentLoaded', () => {
              else { alert("No session data. Start a day."); }
         });
         orderTypeButtons.forEach(btn => btn.addEventListener('click', () => handleOrderTypeSelection(btn.dataset.type)));
-        btnCancelOrderCreation.addEventListener('click', () => showScreen('mainApp'));
+        btnCancelOrderCreation.addEventListener('click', () => {
+            if (screens.tableNumber.classList.contains('active')) {
+                showScreen('newOrderType');
+            } else {
+                showScreen('mainApp');
+            }
+        });
+        
+        categoryTypeButtons.forEach(btn => {
+            btn.addEventListener('click', () => handlePrimaryCategorySelection(btn.dataset.category));
+        });
+        btnCancelCategorySelection.addEventListener('click', () => {
+            if (currentOrderBuilder.type === 'dine-in' && screens.tableNumber.classList.contains('active')) {
+                showScreen('tableNumber'); 
+            } else if (currentOrderBuilder.type) {
+                showScreen('newOrderType'); 
+            } else {
+                showScreen('mainApp');
+            }
+        });
+
         btnConfirmTableNumber.addEventListener('click', handleTableNumberConfirm);
         btnCancelTableNumber.addEventListener('click', () => showScreen('newOrderType'));
         btnItemSelectionNext.addEventListener('click', handleItemSelectionNext);
@@ -571,10 +725,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btnCancelPayment.addEventListener('click', () => { closeModal('paymentMethod'); orderToPayId = null; });
         btnReportBackToMain.addEventListener('click', () => { if (dailySession.active) showScreen('mainApp'); else showScreen('startDay'); });
         btnExportReport.addEventListener('click', exportDailyReportCSV);
+        
         btnSettingsBackToMain.addEventListener('click', () => showScreen('mainApp'));
-        btnAddMainItem.addEventListener('click', () => openEditMenuItemModal('main'));
-        btnAddSideItem.addEventListener('click', () => openEditMenuItemModal('side'));
+        btnAddBatchoyItem.addEventListener('click', () => openEditMenuItemModal('batchoy', 'main'));
+        btnAddBatchoySideItem.addEventListener('click', () => openEditMenuItemModal('batchoy', 'side'));
+        btnAddSilogItem.addEventListener('click', () => openEditMenuItemModal('silog', 'main'));
+        btnAddSilogSideItem.addEventListener('click', () => openEditMenuItemModal('silog', 'side'));
         btnCloseEditMenuModal.addEventListener('click', () => closeModal('editMenuItem'));
+        
         filterButtons.forEach(button => {
             button.addEventListener('click', () => {
                 filterButtons.forEach(btn => btn.classList.remove('active'));
@@ -584,16 +742,22 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         btnConfirmAction.addEventListener('click', () => {
-            if (typeof confirmationCallback === 'function') {
-                confirmationCallback();
-            }
-            confirmationCallback = null; // Reset callback
-            closeModal('confirmation');
+            if (typeof confirmationCallback === 'function') { confirmationCallback(); }
+            confirmationCallback = null; closeModal('confirmation');
         });
         btnCancelAction.addEventListener('click', () => {
-            confirmationCallback = null; // Reset callback
-            closeModal('confirmation');
+            confirmationCallback = null; closeModal('confirmation');
         });
     }
     init();
+
+    // PWA Service Worker Registration
+    function registerServiceWorker() {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('./sw.js')
+          .then((registration) => { console.log('Service Worker: Registration successful, scope is:', registration.scope); })
+          .catch((error) => { console.error('Service Worker: Registration failed:', error); });
+      } else { console.log('Service Worker: Not supported by this browser.'); }
+    }
+    window.addEventListener('load', () => { registerServiceWorker(); });
 });
